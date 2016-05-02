@@ -1,0 +1,168 @@
+_GRM_TEST_MAIN = '//ml/fst/tools:thrax_test'
+
+
+def grm_library(name, src, deps=None, data=None, visibility=None, timeout=0):
+    """Build rule for compiling a Thrax grammar.
+
+    Args:
+      name: The name of the build rule.
+      src: Input .grm file.
+      deps: Dependencies.
+      data: Static data files required for this rule.
+      visibility: Rule visibility.
+      timeout: Timeout (in seconds) for building this rule.
+    """
+    data = data or []
+    deps = deps or []
+    # thraxcompiler needs access to both the sources and compiled artifacts
+    # of its dependencies. We could output them from the .far rule as well
+    # but that makes it awkward to use in other rules. Better to encapsulate
+    # it here since it's something of an implementation detail, although it
+    # does complicate these rules somewhat.
+    filegroup(
+        name = '_%s#src' % name,
+        srcs = [src],
+        visibility = visibility,
+    )
+    build_rule(
+        name = '_%s#far' % name,
+        srcs = {
+            'src': [src],
+            'data': data,
+        },
+        deps = deps + [':_%s#src' % name],
+        cmd = 'thraxcompiler --input_grammar=$SRCS_SRC --output_far=$OUT',
+        outs = [name + '.far'],
+        visibility = visibility,
+        build_timeout = timeout,
+        requires = ['grm', 'far'],
+        needs_transitive_deps = True,
+    )
+    filegroup(
+        name = name,
+        srcs = [':_%s#far' % name],
+        deps = [':_%s#src' % name],
+        provides = {
+            'grm': ':_%s#src' % name,
+            'far': ':_%s#far' % name,
+        },
+    )
+
+
+def grm_test(name, ref, far, exclude=None, ignore_category=False, ignore_case=False,
+             test_rule=CONFIG.GRM_TEST, deps=None, visibility=None, labels=None):
+    """Build rule for compiling a test on a Thrax grammar.
+
+    Args:
+      name: The name of the test rule.
+      ref: Reference file for the test.
+      far: Compiled .far file to test (typically a grm_library target).
+      exclude: File containing test lines to ignore.
+      ignore_category: Ignore category for purposes of matching.
+      ignore_case: Ignore case for the input facet of the rule.
+      test_rule: Target that defines the test binary (defaults to config setting,
+                 which itself defaults to //third_party/grm:test_main).
+      deps: Dependencies.
+      visibility: Rule visibility.
+    """
+    deps = deps or []
+    deps.append(test_main)
+    exclude_command = (' --exclude=$(location ' + exclude + ') ') if exclude else ''
+    cmd = '$(exe %s) --far=$(location %s) -o=test.results' % (test_main, far)
+    cmd += exclude_command
+    cmd += ' --ignore_category' if ignore_category else ''
+    cmd += ' --ignore_case' if ignore_case else ''
+    cmd += ' < $(location %s)' % ref
+    data = [ref, far, test_rule]
+    if exclude:
+        data.append(exclude)
+
+    gentest(
+        name = name,
+        data = data,
+        deps = deps,
+        test_cmd = cmd,
+        visibility = visibility,
+        srcs = data,
+        outs = [name],
+        cmd = 'echo \'%s\' > $OUT' % cmd,
+        labels = labels,
+    )
+
+
+def extract_fst(name, src, rule, out=None, deps=None, visibility=None):
+    """Build rule to extract a single FST from a .far.
+
+    Args:
+      name: Name of the build rule.
+      src: Source .far to extract from.
+      rule: Name of rule to extract from the .far.
+      out: Name of output file to create. Defaults to rule + '.fst'.
+      deps: Dependent build rules.
+      visibility: Rule visibility.
+    """
+    out = out or (rule + '.fst')
+    genrule(
+        name = name,
+        deps = deps,
+        srcs = [src],
+        cmd = 'farextract --keys=%s $SRC && mv %s ${OUT}' % (rule, rule),
+        out = out,
+        visibility=visibility,
+        requires = ['far'],
+    )
+
+
+def filter_far(name, src, rules, out=None, deps=None, visibility=None):
+    """Build rule to cut down a .far to just the given rules.
+
+    Args:
+      name: Name of the build rule.
+      src: Source .far to extract from.
+      rules: Names of rules to retain.
+      out: Name of output file to create.
+      deps: Dependent build rules.
+      visibility: Rule visibility.
+    """
+    genrule(
+        name = name,
+        srcs = [src],
+        outs = [out or name + '.far'],
+        cmd = 'farextract --keys=%s $SRC && farcreate %s $OUT' % (','.join(rules), ' '.join(rules)),
+        deps = deps,
+        visibility=visibility,
+        requires = ['far'],
+    )
+
+
+# Set these in the config so they can be overridden via package().
+# In future it would be nice to be able to configure this kind of thing in plzconfig
+# but it's currently not possible to add arbitrary sections to it.
+CONFIG.setdefault('GRM_TEST', '//third_party/grm:test_main')
+
+
+def grm_init():
+    """Call this once in the package containing test_main (typically third_party/grm).
+
+    It will set up rules to download the source code for the test binary
+    and compile it. You'll of course need to have libfst, libfstfar and libthrax
+    installed for it all to work.
+    """
+    github_file(
+        name = 'fetch_test_main',
+        repo = 'thought-machine/pleasings',
+        file = 'grm/grm_test_main.cc',
+    )
+    cc_binary(
+        name = 'test_main',
+        srcs = [':fetch_test_main'],
+        linker_flags = [
+            # We don't know which of these libfst will get installed in, but neither is
+            # on the linker path by default. pkg-config would be preferable but of course
+            # we can't rely on that being set up for us.
+            '-L/usr/local/lib/fst',
+            '-L/usr/lib/fst',
+            '-lthrax -lfst  -lfstfar -ldl',
+        ],
+        visibility = ['PUBLIC'],
+    )
