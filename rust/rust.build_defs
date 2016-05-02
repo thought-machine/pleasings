@@ -7,15 +7,11 @@ def rust_library(name, srcs, deps=None, visibility=None):
       deps: Dependencies of this rule needed for it to compile.
       visibility: Visibility declaration.
     """
-    cmd = '%s --crate-type=lib $SRCS -o $OUT' % CONFIG.RUSTC_TOOL
     build_rule(
         name = name,
         srcs = srcs,
         outs = ['lib%s.rlib' % name],
-        cmd = {
-            'dbg': cmd + ' -g',
-            'opt': cmd + ' -O',
-        },
+        cmd = _rustc_cmds(deps, crate_type='lib'),
         deps = deps,
         visibility = visibility,
     )
@@ -30,18 +26,27 @@ def rust_binary(name, main, deps=None, visibility=None):
       deps: Dependencies of this rule needed for it to compile.
       visibility: Visibility declaration.
     """
-    cmd = '%s $SRCS -o $OUT' % CONFIG.RUSTC_TOOL
     build_rule(
         name = name,
         srcs = [main],
         outs = [name],
-        cmd = {
-            'dbg': cmd + ' -g',
-            'opt': cmd + ' -O',
-        },
+        cmd = _rustc_cmds(deps),
         deps = deps,
         visibility = visibility,
     )
+
+
+def _rustc_cmds(deps=None, crate_type=None):
+    cmd = [CONFIG.RUSTC_TOOL, '$SRCS', '-o', '$OUT']
+    if crate_type:
+        cmd.append('--crate-type=' + crate_type)
+    if deps:
+        cmd.extend('-L $(dir %s)' % dep for dep in deps)
+    cmd = ' '.join(cmd)
+    return {
+        'dbg': cmd + ' -g',
+        'opt': cmd + ' -O',
+    }
 
 
 # Add the RUSTC_TOOL to the config so people can override with package().

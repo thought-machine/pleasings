@@ -1,6 +1,6 @@
 // Very simple main to test our library.
-use lib::add_two;
+extern crate lib;
 
 fn main() {
-    println!("The answer is {}", add_two(40));
+    println!("The answer is {}", lib::add_two(40));
 }
