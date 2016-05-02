@@ -1,0 +1,23 @@
+def rust_library(name, srcs, deps=None, visibility=None):
+    """Defines a build rule for a Rust library.
+
+    Args:
+      name: Name of the rule.
+      srcs: Source files for this library.
+      deps: Dependencies of this rule needed for it to compile.
+      visibility: Visibility declaration.
+    """
+    build_rule(
+        name = name,
+        srcs = srcs,
+        outs = [name + '.rlib'],
+        cmd = '%s $SRCS -o $OUT' % CONFIG.RUSTC_TOOL,
+        deps = deps,
+        visibility = visibility,
+    )
+
+
+# Add the RUSTC_TOOL to the config so people can override with package().
+# In future it would be nice to be able to configure this kind of thing
+# in plzconfig.
+CONFIG.setdefault('RUSTC_TOOL', 'rustc')
