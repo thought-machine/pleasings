@@ -49,8 +49,8 @@ def grm_library(name, src, deps=None, data=None, visibility=None, timeout=0):
     )
 
 
-def grm_test(name, ref, far, exclude=None, ignore_category=False, ignore_case=False,
-             test_rule=CONFIG.GRM_TEST, deps=None, visibility=None, labels=None):
+def grm_test(name, ref, far, exclude=None, ignore_case=False, separator=None,
+             test_main=None, deps=None, visibility=None, labels=None):
     """Build rule for compiling a test on a Thrax grammar.
 
     Args:
@@ -58,25 +58,25 @@ def grm_test(name, ref, far, exclude=None, ignore_category=False, ignore_case=Fa
       ref: Reference file for the test.
       far: Compiled .far file to test (typically a grm_library target).
       exclude: File containing test lines to ignore.
-      ignore_category: Ignore category for purposes of matching.
       ignore_case: Ignore case for the input facet of the rule.
-      test_rule: Target that defines the test binary (defaults to config setting,
+      test_main: Target that defines the test binary (defaults to config setting,
                  which itself defaults to //third_party/grm:test_main).
       deps: Dependencies.
       visibility: Rule visibility.
     """
-    deps = deps or []
-    deps.append(test_main)
-    exclude_command = (' --exclude=$(location ' + exclude + ') ') if exclude else ''
-    cmd = '$(exe %s) --far=$(location %s) -o=test.results' % (test_main, far)
-    cmd += exclude_command
-    cmd += ' --ignore_category' if ignore_category else ''
-    cmd += ' --ignore_case' if ignore_case else ''
-    cmd += ' < $(location %s)' % ref
-    data = [ref, far, test_rule]
+    separator = separator or CONFIG.GRM_TEST_SEPARATOR
+    test_main = test_main or CONFIG.GRM_TEST
+    cmd = ' '.join([
+        '$TEST',
+        '--far=$(location %s)' % far,
+        '--exclude=$(location %s)' % exclude if exclude else '',
+        '-o=test.results',
+        '--ignore_case' if ignore_case else '',
+        '< $(location %s)' % ref,
+    ])
+    data = [ref, far, test_main]
     if exclude:
         data.append(exclude)
-
     gentest(
         name = name,
         data = data,
@@ -139,6 +139,7 @@ def filter_far(name, src, rules, out=None, deps=None, visibility=None):
 # In future it would be nice to be able to configure this kind of thing in plzconfig
 # but it's currently not possible to add arbitrary sections to it.
 CONFIG.setdefault('GRM_TEST', '//third_party/grm:test_main')
+CONFIG.setdefault('GRM_TEST_SEPARATOR', '\t')
 
 
 def grm_init():

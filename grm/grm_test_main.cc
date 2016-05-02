@@ -55,7 +55,6 @@ DEFINE_string(exclude, "", "File containing line numbers of tests to exclude, fo
 DEFINE_string(separator, "\t", "Separating character for fields in the reference file");
 DEFINE_string(far, "", "Path to the FAR.");
 DEFINE_string(o, "", "Path to a test output file to write.");
-DEFINE_bool(ignore_category, false, "Ignore the category for purposes of matching");
 DEFINE_bool(ignore_case, false, "Ignore the case of the inputs (NB. not outputs)");
 
 bool ReadInput(string *test_rule, string *input, string *reference, bool *comment,
@@ -102,23 +101,6 @@ inline size_t find_nth(const std::string& s, char c, int n) {
     pos = s.find(c, pos + 1);
   }
   return pos;
-}
-
-// deliberately make this copy strings so we can modify inside function
-bool match(string reference, string test) {
-  if (FLAGS_ignore_category) {
-    size_t reference_pos = find_nth(reference, ',', 3);
-    if (reference_pos != string::npos) {
-      reference.erase(reference_pos, string::npos);
-    }
-    size_t test_pos = find_nth(test, ',', 3);
-    if (test_pos != string::npos) {
-      test.erase(test_pos, string::npos);
-    }
-    return (reference == test);
-  } else {
-    return (reference == test);
-  }
 }
 
 // Rewrites input to output according to the given grammar rule.
@@ -182,7 +164,7 @@ int main(int argc, char** argv) {
       // Output is in Go test format because it's easy and convenient and we already parse it.
       PrintIfOpen(output_file, "=== RUN TestLine%d\n", line);
       if (Rewrite(grm, test_rule, input, &output)) {
-        if (match(reference, output)) {
+        if (reference == output) {
           PrintIfOpen(output_file, "--- PASS: TestLine%d (0.00s)\n", line);
           success = true;
         } else {
