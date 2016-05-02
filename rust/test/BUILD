@@ -12,3 +12,8 @@ rust_binary(
         ':lib',
     ],
 )
+
+rust_test(
+    name = 'test',
+    srcs = ['lib.rs'],
+)

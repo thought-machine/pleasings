@@ -1,3 +1,10 @@
+"""Build rules for compiling Rust code in Please.
+
+These have been tested with Rust v1.8.0; they may work with
+older versions but we don't know specifically which ones.
+"""
+
+
 def rust_library(name, srcs, deps=None, visibility=None):
     """Defines a build rule for a Rust library.
 
@@ -14,6 +21,7 @@ def rust_library(name, srcs, deps=None, visibility=None):
         cmd = _rustc_cmds(deps, crate_type='lib'),
         deps = deps,
         visibility = visibility,
+        requires = ['rust'],
     )
 
 
@@ -29,17 +37,52 @@ def rust_binary(name, main, deps=None, visibility=None):
     build_rule(
         name = name,
         srcs = [main],
+        binary = True,
         outs = [name],
         cmd = _rustc_cmds(deps),
         deps = deps,
         visibility = visibility,
+        requires = ['rust'],
     )
 
 
-def _rustc_cmds(deps=None, crate_type=None):
+def rust_test(name, srcs, deps=None, visibility=None):
+    """Defines a test rule for a Rust library.
+
+    Note that while this correctly runs tests, the Rust test runner has no
+    ability to output in any format we're familiar with. This is a known issue
+    (see https://github.com/rust-lang/rfcs/issues/816) but it isn't resolved
+    yet, so for now we do a straight pass-fail. Rumour has it that plz may gain
+    some ability to parse Rust test logs soonish in which case we'd get slightly
+    more detailed feedback here.
+
+    Args:
+      name: Name of the rule.
+      srcs: Source files for test.
+      deps: Dependencies of this rule needed for it to compile.
+      visibility: Visibility declaration.
+    """
+    build_rule(
+        name = name,
+        srcs = srcs,
+        binary = True,
+        test = True,
+        outs = [name],
+        cmd = _rustc_cmds(deps, test=True),
+        test_cmd = '$(exe :%s)' % name,
+        deps = deps,
+        visibility = visibility,
+        requires = ['rust'],
+        no_test_output = True,  # see above
+    )
+
+
+def _rustc_cmds(deps=None, crate_type=None, test=False):
     cmd = [CONFIG.RUSTC_TOOL, '$SRCS', '-o', '$OUT']
     if crate_type:
         cmd.append('--crate-type=' + crate_type)
+    if test:
+        cmd.append('--test')
     if deps:
         cmd.extend('-L $(dir %s)' % dep for dep in deps)
     cmd = ' '.join(cmd)
@@ -49,7 +92,7 @@ def _rustc_cmds(deps=None, crate_type=None):
     }
 
 
-# Add the RUSTC_TOOL to the config so people can override with package().
-# In future it would be nice to be able to configure this kind of thing
-# in plzconfig.
+# Add rustc to the config so people can override with package().
+# In future it would be nice to be able to configure this kind of thing in plzconfig
+# but it's currently not possible to add arbitrary sections to it.
 CONFIG.setdefault('RUSTC_TOOL', 'rustc')
