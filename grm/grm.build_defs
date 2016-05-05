@@ -1,4 +1,17 @@
-_GRM_TEST_MAIN = '//ml/fst/tools:thrax_test'
+"""Build rules for Thrax grammars (http://www.openfst.org/twiki/bin/view/GRM/Thrax).
+
+You will of course need to subinclude() this file into each package that builds grammars.
+The grm_library rule compiles a .grm into a .far, and there are a couple of convenience
+rules to perform other manipulations on them.
+
+If you want to use grm_test (because of course you are testing your grammars) then you
+need to build the C++ binary for it that runs the test. This is easy to do by adding a
+package (idiomatically //third_party/grm/BUILD) in which you again subinclude() these
+rules and run grm_init(). That sets up a cc_binary target for the test main.
+If you want to put it somewhere else, that's fine, but you'll have to change it in the
+config (via `package(grm_test_main = '//my/package:test_main')`) or pass test_main to
+each grm_test rule.
+"""
 
 
 def grm_library(name, src, deps=None, data=None, visibility=None, timeout=0):
@@ -65,7 +78,7 @@ def grm_test(name, ref, far, exclude=None, ignore_case=False, separator=None,
       visibility: Rule visibility.
     """
     separator = separator or CONFIG.GRM_TEST_SEPARATOR
-    test_main = test_main or CONFIG.GRM_TEST
+    test_main = test_main or CONFIG.GRM_TEST_MAIN
     cmd = ' '.join([
         '$TEST',
         '--far=$(location %s)' % far,
@@ -138,7 +151,7 @@ def filter_far(name, src, rules, out=None, deps=None, visibility=None):
 # Set these in the config so they can be overridden via package().
 # In future it would be nice to be able to configure this kind of thing in plzconfig
 # but it's currently not possible to add arbitrary sections to it.
-CONFIG.setdefault('GRM_TEST', '//third_party/grm:test_main')
+CONFIG.setdefault('GRM_TEST_MAIN', '//third_party/grm:test_main')
 CONFIG.setdefault('GRM_TEST_SEPARATOR', '\t')
 
 
