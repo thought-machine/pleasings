@@ -137,6 +137,39 @@ def android_binary(name, resources, deps=None, visibility=None):
     )
 
 
+def android_aar(name, manifest=None, resources=None, deps=None, visibility=None):
+    """Builds a .aar package for Android.
+
+    Args:
+      name (str): Name of the rule.
+      manifest (str): Rule or source file containing the manifest.
+      resources (str): Rule or source file containing the resources for this package.
+      deps (list): Dependencies of this rule.
+      visibility (list): Visibility declaration of this rule.
+    """
+    if not manifest and not resources:
+        raise ParseError('Must pass at least one of manifest or resources to android_aar')
+    # Use this to only pull the first level of deps into the AAR.
+    # Would be nice if we could get away without the intermediate rule...
+    filegroup(
+        name = '_%s#deps' % name,
+        srcs = (deps or []) + [manifest],
+    )
+    java_binary(
+        name = '_%s#classes' % name,
+        deps = [':_%s#deps' % name],
+        out = 'classes.jar',
+    )
+    build_rule(
+        name = name,
+        srcs = [':_%s#classes' % name, manifest, resources],
+        visibility = visibility,
+        requires = ['res'],
+        outs = [name + '.aar'],
+        cmd = 'mv $PKG/* . && %s -d -o $OUTS -i .' % CONFIG.JARCAT_TOOL,
+    )
+
+
 def _android_tool(tool_name):
     """Gets the location of one of the Android tools."""
     try:
