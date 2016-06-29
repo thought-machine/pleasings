@@ -1,0 +1,195 @@
+"""A pretty basic set of build rules for Android. Can build a .apk which may or may not work.
+
+TODOs:
+ - AIDL
+ - Proguard
+ - Jar signing
+ - dbg / opt configurations
+ - No doubt we are missing lots of other features
+"""
+
+def android_resource(name, package, manifest, res, resources_root=None, assets=None,
+                     deps=None, visibility=None):
+    """Defines an Android resource target built using aapt.
+
+    Args:
+      name (str): Name of the rule.
+      package (str): Java package for the generated R.java file.
+      manifest (str): Either a file or a build target containing the AndroidManifest.xml file.
+      res (str): Directory containing resources.
+      resources_root (str): Root directory for resources, as java_library.
+      assets (str): Directory containing assets. Often not used.
+      deps (list): Extra dependencies for this rule.
+      visbiliity (list): Visibility specification for this rule.
+    """
+    cmd = [
+        _android_tool('aapt_tool'), 'package',
+        '-I', _android_tool('android_jar'),
+        '-M $(location %s)' % manifest if manifest else '',
+        '-S $(location %s)' % res,
+        '-S $(location %s)' % assets if assets else '',
+        '--custom-package', package,
+        '--output-text-symbols .',
+        '-J .',
+        '--no-version-vectors',
+    ]
+    # Slightly awkward solution to generate the .java and .txt files separately.
+    build_rule(
+        name = '_%s#src' % name,
+        srcs = [res, assets, manifest],
+        outs = ['R.java'],
+        cmd = ' '.join(cmd),
+        deps = deps,
+        visibility = visibility,
+        building_description = 'Running aapt...',
+    )
+    java_library(
+        name = '_%s#res' % name,
+        resources = [res, assets, manifest],
+        resources_root = resources_root or '$(dirname %s)' % res,
+        visibility = visibility,
+    )
+    build_rule(
+        name = name,
+        srcs = [res, assets, manifest],
+        outs = ['R.txt'],
+        cmd = ' '.join(cmd),
+        deps = deps,
+        visibility = visibility,
+        building_description = 'Running aapt...',
+        provides = {
+            'java': ':_%s#src' % name,
+            'res': ':_%s#res' % name,
+        },
+    )
+
+
+def android_library(name, srcs=None, resources=None, resources_root=None, deps=None,
+                    exported_deps=None, visibility=None, test_only=False):
+    """Wrapper around java_library which is slightly more specific to Android code.
+
+    Args:
+      name (str): Name of the rule
+      srcs (list): Java source files to compile for this library
+      resources (list): Resources to include in the .jar file
+      resources_root (str): Root directory to treat resources relative to; ie. if we are in
+                            //project/main/resources and resources_root is project/main then
+                            the resources in the .jar will be in the subdirectory 'resources'.
+      deps (list): Dependencies of this rule.
+      exported_deps (list): Exported dependencies, ie. dependencies that other things depending on this
+                            rule will also receive when they're compiling. This is quite important for
+                            Java; any dependency that forms part of the public API for your classes
+                            should be an exported dependency.
+      visibility (list): Visibility declaration of this rule.
+      test_only (bool): If True, this rule can only be depended on by tests.
+    """
+    java_library(
+        name = name,
+        srcs = srcs,
+        resources = resources,
+        resources_root = resources_root,
+        deps = deps,
+        exported_deps = exported_deps,
+        visibility = visibility,
+        test_only = test_only,
+        javac_flags = [
+            '-encoding UTF-8',
+            '-bootclasspath', _android_tool('android_jar'),
+        ],
+    )
+
+
+def android_binary(name, resources, deps=None, visibility=None):
+    """Creates an APK from a bunch of android_library rules.
+
+    Args:
+      name (str): Name of the rule.
+      resources (str): Rule providing resources for this apk; typically an android_resource rule.
+      deps (list): Dependencies of this rule.
+      visibility (list): Visibility declaration of this rule.
+    """
+    build_rule(
+        name = '_%s#dex' % name,
+        deps = deps,
+        outs = [name + '.dex'],
+        cmd = '%s --dex --output=$OUT `find . -name "*.jar"`' % _android_tool('dex_tool'),
+        needs_transitive_deps = True,
+        output_is_complete = True,
+        building_description = 'Dexing...',
+    )
+    build_rule(
+        name = '_%s#unaligned' % name,
+        srcs = {
+            'dex': [':_%s#dex' % name],
+            'res': [resources],
+        },
+        outs = [name + '_unaligned.apk'],
+        cmd = 'mv $SRCS_DEX classes.dex && %s -i . -o $OUTS --include_other --strict' % CONFIG.JARCAT_TOOL,
+        requires = ['res'],
+    )
+    build_rule(
+        name = name,
+        srcs = [':_%s#unaligned' % name],
+        outs = [name + '.apk'],
+        cmd = '%s 4 $SRC $OUT' % _android_tool('zipalign_tool'),
+        deps = deps,
+        visibility = visibility,
+    )
+
+
+def android_aar(name, manifest=None, resources=None, deps=None, visibility=None):
+    """Builds a .aar package for Android.
+
+    Args:
+      name (str): Name of the rule.
+      manifest (str): Rule or source file containing the manifest.
+      resources (str): Rule or source file containing the resources for this package.
+      deps (list): Dependencies of this rule.
+      visibility (list): Visibility declaration of this rule.
+    """
+    if not manifest and not resources:
+        raise ParseError('Must pass at least one of manifest or resources to android_aar')
+    # Use this to only pull the first level of deps into the AAR.
+    # Would be nice if we could get away without the intermediate rule...
+    filegroup(
+        name = '_%s#deps' % name,
+        srcs = (deps or []) + [manifest],
+    )
+    java_binary(
+        name = '_%s#classes' % name,
+        deps = [':_%s#deps' % name],
+        out = 'classes.jar',
+    )
+    build_rule(
+        name = name,
+        srcs = [':_%s#classes' % name, manifest, resources],
+        visibility = visibility,
+        requires = ['res'],
+        outs = [name + '.aar'],
+        cmd = 'mv $PKG/* . && %s -d -o $OUTS -i .' % CONFIG.JARCAT_TOOL,
+    )
+
+
+def _android_tool(tool_name):
+    """Gets the location of one of the Android tools."""
+    try:
+        return CONFIG[tool_name.upper()]
+    except KeyError:
+        raise ParseError('You must call set_android_home() before other Android rules.')
+
+
+def set_android_home(home, tools_version):
+    """Initialises the Android tools.
+
+    Args:
+      home (str): Location of Android home, e.g. '/opt/android'
+      tools_version (str): Version of build tools to use, e.g. '23.0.3'
+    """
+    build_tools_dir = join_path(home, 'build-tools', tools_version)
+    CONFIG['AAPT_TOOL'] = join_path(build_tools_dir, 'aapt')
+    CONFIG['DEX_TOOL'] = join_path(build_tools_dir, 'dx')
+    CONFIG['ZIPALIGN_TOOL'] = join_path(build_tools_dir, 'zipalign')
+    major_version, _, _ = tools_version.partition('.')
+    CONFIG['ANDROID_JAR'] = join_path(home, 'platforms/android-' + major_version, 'android.jar')
+    # Downgrade these, the plz default is 8 which of course won't work for Android.
+    package(java_target_level='7', java_source_level='7')
