@@ -22,55 +22,100 @@ def android_resource(name, package, manifest, res, resources_root=None, assets=N
       deps (list): Extra dependencies for this rule.
       visbiliity (list): Visibility specification for this rule.
     """
-    cmd = [
+    # Have to merge resources with any deps. Unfortunately you can't load them from a .aar :(
+    if deps:
+        res = build_rule(
+            name = name,
+            tag = 'merge_res',
+            srcs = {
+                'res': [res],
+                'deps': deps,
+            },
+            # This is a bit awkward; we might want it to be different to support multiple rules
+            # in one directory, but that makes it harder to merge jars later.
+            outs = [name + '_merged_res'],
+            cmd = ' && '.join([
+                'mv $SRCS_RES $OUT',
+                'for DEP in $SRCS_DEPS; do unzip -o $DEP; rsync -r res/ $OUT; done',
+                # The existing apks don't have these, but we may want them for localisation.
+                # Should work out what the correct answer is.
+                'rm -rf ${OUT}/values-*',
+            ])
+        )
+
+    cmd = ' '.join([
         _android_tool('aapt_tool'), 'package',
-        '-I', _android_tool('android_jar'),
-        '-M $(location %s)' % manifest if manifest else '',
+        '-I $(location %s)' % CONFIG.ANDROID_JAR,
+        '-M $(location %s)' % manifest,
         '-S $(location %s)' % res,
-        '-S $(location %s)' % assets if assets else '',
+        '-A $(location %s)' % assets if assets else '',
         '--custom-package', package,
         '--output-text-symbols .',
         '-J .',
         '--no-version-vectors',
-    ]
+    ])
     # Slightly awkward solution to generate the .java and .txt files separately.
-    build_rule(
-        name = '_%s#src' % name,
+    java_src_rule = build_rule(
+        name = name,
+        tag = 'java_src',
         srcs = [res, assets, manifest],
         outs = ['R.java'],
-        cmd = ' '.join(cmd),
-        deps = deps,
+        cmd = cmd,
+        tools = [CONFIG.ANDROID_JAR],
         visibility = visibility,
+        output_is_complete = True,
         building_description = 'Running aapt...',
     )
-    java_library(
-        name = '_%s#res' % name,
-        resources = [res, assets, manifest],
-        resources_root = resources_root or '$(dirname %s)' % res,
+    res_rule = build_rule(
+        name = name,
+        tag = 'res',
+        srcs = {'res': [res], 'assets': [assets] if assets else []},
+        outs = [name + '_res.jar'],
+        cmd = 'mv $SRCS_RES res && %s %s -d -o $OUTS -i .' % (
+            'mv $SRCS_ASSETS assets && ' if assets else '', CONFIG.JARCAT_TOOL),
+    )
+    filegroup(
+        name = '_%s#manifest' % name,
+        srcs = [manifest],
         visibility = visibility,
     )
-    build_rule(
+    filegroup(
+        name = '_%s#srcs' % name,
+        srcs = [manifest, res],
+        visibility = visibility,
+    )
+    r_rule = build_rule(
         name = name,
+        tag = 'r',
         srcs = [res, assets, manifest],
         outs = ['R.txt'],
-        cmd = ' '.join(cmd),
+        cmd = cmd,
         deps = deps,
+        tools = [CONFIG.ANDROID_JAR],
         visibility = visibility,
         building_description = 'Running aapt...',
+    )
+    filegroup(
+        name = name,
+        visibility = visibility,
         provides = {
-            'java': ':_%s#src' % name,
-            'res': ':_%s#res' % name,
+            'java': java_src_rule,
+            'res_src': ':_%s#srcs' % name,
+            'manifest': ':_%s#manifest' % name,
+            'res': res_rule,
+            'r': r_rule,
         },
     )
 
 
-def android_library(name, srcs=None, resources=None, resources_root=None, deps=None,
+def android_library(name, srcs=None, src_dir=None, resources=None, resources_root=None, deps=None,
                     exported_deps=None, visibility=None, test_only=False):
-    """Wrapper around java_library which is slightly more specific to Android code.
+    """Wrapper around java_library which is slightly more specific to Android code. Also dexes.
 
     Args:
       name (str): Name of the rule
       srcs (list): Java source files to compile for this library
+      src_dir (str): Directory containing Java source files.
       resources (list): Resources to include in the .jar file
       resources_root (str): Root directory to treat resources relative to; ie. if we are in
                             //project/main/resources and resources_root is project/main then
@@ -83,67 +128,152 @@ def android_library(name, srcs=None, resources=None, resources_root=None, deps=N
       visibility (list): Visibility declaration of this rule.
       test_only (bool): If True, this rule can only be depended on by tests.
     """
+    java_rule = '_%s#java' % name
     java_library(
-        name = name,
+        name = java_rule,
         srcs = srcs,
+        src_dir = src_dir,
         resources = resources,
         resources_root = resources_root,
-        deps = deps,
+        deps = (deps or []) + [CONFIG.ANDROID_JAR],
         exported_deps = exported_deps,
         visibility = visibility,
         test_only = test_only,
         javac_flags = [
             '-encoding UTF-8',
-            '-bootclasspath', _android_tool('android_jar'),
         ],
+    )
+    dex_rule = dex_library(
+        name = name,
+        tag = 'ldex',
+        src = ':' + java_rule,
+        test_only = test_only,
+        visibility = visibility,
+    )
+    filegroup(
+        name = name,
+        srcs = [':' + java_rule],
+        provides = {
+            'dex': dex_rule,
+        },
+        test_only = test_only,
+        visibility = visibility,
     )
 
 
-def android_binary(name, resources, deps=None, visibility=None):
+def android_binary(name, resources, out=None, arch=None, deps=None, visibility=None, labels=None):
     """Creates an APK from a bunch of android_library rules.
 
     Args:
       name (str): Name of the rule.
       resources (str): Rule providing resources for this apk; typically an android_resource rule.
+      out (str): Name of output .apk, defaults to name + .apk.
+      arch (str): Architecture to include native libraries for. If not given all are included;
+                  otherwise it's limited to just the given one. Typically something like 'x86'
+                  or 'armeabi-v7a'.
       deps (list): Dependencies of this rule.
       visibility (list): Visibility declaration of this rule.
+      labels (list): Labels to apply to this rule.
     """
-    build_rule(
-        name = '_%s#dex' % name,
+    dex_rule = build_rule(
+        name = name,
+        tag = 'dex',
         deps = deps,
         outs = [name + '.dex'],
-        cmd = '%s --dex --output=$OUT `find . -name "*.jar"`' % _android_tool('dex_tool'),
+        cmd = '%s --dex --output=$OUT $(find . -name "*.dex.jar" | sort)' % _android_tool('dex_tool'),
         needs_transitive_deps = True,
         output_is_complete = True,
         building_description = 'Dexing...',
+        requires = ['dex'],
     )
-    build_rule(
-        name = '_%s#unaligned' % name,
+    # Need to extract all the native libraries from all dependencies.
+    flag = 'jni/' + ((arch + '/') if arch else '')
+    native_rule = build_rule(
+        name = name,
+        tag = 'native',
+        deps = deps,
+        outs = [name + '_native_libs.jar'],
+        cmd = '%s -strict -i . -s .aar -s .jar -e _src.aar -e _src.jar -t "%s" -t "META-INF/services/" -o $OUTS -r jni/:lib/' % (CONFIG.JARCAT_TOOL, flag),
+        needs_transitive_deps = True,
+        output_is_complete = True,
+        requires = ['android'],
+        building_description = 'Extracting native libraries...',
+    )
+    # Merge all dependent manifests together.
+    manifest_rule = build_rule(
+        name = name,
+        tag = 'manifest',
+        deps = deps,
+        outs = ['AndroidManifest.xml'],
+        srcs = [resources],
+        cmd = ' '.join([
+            'MANIFESTS="";',
+            'for i in `find . -name \'*.aar\'`; do',
+            'unzip -qq $i AndroidManifest.xml && mv AndroidManifest.xml ${i/.aar/.xml} &&',
+            'MANIFESTS="$MANIFESTS ${i/.aar/.xml}";',
+            'done; ',
+            # manifest_merger seems to not output anything if we use paths in the workdir?
+            'TEMP=`mktemp` && ',
+            '$(exe %s) merge --main $SRCS --out $TEMP --libs $MANIFESTS && ' % CONFIG.MANIFEST_MERGER,
+            'mv $TEMP $OUT',
+        ]),
+        tools = [CONFIG.MANIFEST_MERGER],
+        needs_transitive_deps = True,
+        output_is_complete = True,
+        requires = ['manifest'],
+    )
+    # Use aapt to build the actual .apk
+    aapt_rule = build_rule(
+        name = name,
+        tag = 'aapt',
         srcs = {
-            'dex': [':_%s#dex' % name],
             'res': [resources],
+            'manifest': [manifest_rule],
         },
-        outs = [name + '_unaligned.apk'],
+        outs = [name + '_aapt.jar'],
+        cmd = ' && '.join([
+            'unzip $SRCS_RES',
+            'mv $SRCS_MANIFEST AndroidManifest.xml',
+            '%s package -v -f -M AndroidManifest.xml -I $TOOLS -F $OUT -S res -A assets' %
+                _android_tool('aapt_tool'),
+        ]),
+        tools = [_android_tool('android_jar')],
+        requires = ['res'],
+        building_description = 'Compiling apk...',
+    )
+    out = out or name + '.apk'
+    unsigned_rule = build_rule(
+        name = name,
+        tag = 'unsigned',
+        srcs = {
+            'dex': [dex_rule],
+            'other': [native_rule, aapt_rule],
+        },
+        outs = ['unsigned_' + out],
         cmd = 'mv $SRCS_DEX classes.dex && %s -i . -o $OUTS --include_other --strict' % CONFIG.JARCAT_TOOL,
         requires = ['res'],
     )
+    zipalign_cmd = '%s 4 $SRC $OUT' % _android_tool('zipalign_tool')
     build_rule(
         name = name,
-        srcs = [':_%s#unaligned' % name],
-        outs = [name + '.apk'],
-        cmd = '%s 4 $SRC $OUT' % _android_tool('zipalign_tool'),
+        srcs = [unsigned_rule],
+        outs = [out],
+        cmd = {
+            'opt': zipalign_cmd,
+            'dbg': 'jarsigner -verbose -keystore ~/.android/debug.keystore -storepass android -keypass android $SRCS androiddebugkey && ' + zipalign_cmd,
+        },
         deps = deps,
         visibility = visibility,
     )
 
 
-def android_aar(name, manifest=None, resources=None, deps=None, visibility=None):
+def android_aar(name, resources, manifest=None, deps=None, visibility=None):
     """Builds a .aar package for Android.
 
     Args:
       name (str): Name of the rule.
-      manifest (str): Rule or source file containing the manifest.
       resources (str): Rule or source file containing the resources for this package.
+      manifest (str): Rule or source file containing the manifest.
       deps (list): Dependencies of this rule.
       visibility (list): Visibility declaration of this rule.
     """
@@ -164,9 +294,98 @@ def android_aar(name, manifest=None, resources=None, deps=None, visibility=None)
         name = name,
         srcs = [':_%s#classes' % name, manifest, resources],
         visibility = visibility,
-        requires = ['res'],
         outs = [name + '.aar'],
-        cmd = 'mv $PKG/* . && %s -d -o $OUTS -i .' % CONFIG.JARCAT_TOOL,
+        cmd = 'mv $SRCS . && %s -dno $OUTS -i .' % CONFIG.JARCAT_TOOL,
+        requires = ['r', 'res_src'],
+    )
+
+
+def android_maven_jar(name, id=None, src=None, repository=None, hash=None, deps=None,
+                      visibility=None, test_only=False):
+    """Wrapper around standard maven_jar rule which dexes the contents.
+
+    Args have the same meaning as for maven_jar, except 'src' which allows passing in a .aar
+    directly from another rule to get the dexing etc set up for you.
+    """
+    provides = {}
+    if id:
+        maven_jar(
+            name = name + '_mvn',
+            id = id,
+            hash = hash,
+            repository = repository,
+            deps = deps,
+            # Easier to write the dex rule without these.
+            sources = False,
+            visibility = visibility,
+            test_only = test_only,
+        )
+        src = ':%s_mvn' % name
+        dex_src = src
+        if id.endswith('@aar'):
+            provides['java'] = ':_%s_mvn#classes' % name
+    elif src:
+        # Extract the classes.jar
+        classes_rule = build_rule(
+            name = name,
+            tag = 'classes',
+            srcs = [src],
+            outs = [name + '_classes.jar'],
+            cmd = 'unzip ${SRCS} classes.jar && mv classes.jar $OUT',
+            visibility = visibility,
+            exported_deps = deps,
+        )
+        dex_src = classes_rule
+        provides['java'] = classes_rule
+    else:
+        raise ParseError('Must pass one of id or src to android_maven_jar')
+    dexjar_rule = dex_library(
+        name = name,
+        tag = 'dexjar',
+        src = dex_src,
+        visibility = visibility,
+        test_only = test_only,
+        deps = deps,
+    )
+    provides['dex'] = dexjar_rule
+    filegroup(
+        name = name,
+        srcs = [src],
+        deps = [dexjar_rule],
+        provides = provides,
+        visibility = visibility,
+        output_is_complete = False,
+        test_only = test_only,
+    )
+
+
+def dex_library(name, src, tag=None, visibility=None, test_only=False, deps=None):
+    """Dexes the contents of a single .jar file.
+
+    This is not normally used on its own. Typically you'd use android_library or android_maven_jar
+    instead to get stuff dexed for you.
+    """
+    dex_rule = build_rule(
+        name = name,
+        tag = 'dex',
+        srcs = [src],
+        outs = [name + '.dex'],
+        cmd = 'unzip $SRCS && %s --dex --output=$OUT `find . -name "*.class"`' % _android_tool('dex_tool'),
+        requires = ['java'],
+        building_description = 'Dexing...',
+        test_only = test_only,
+    )
+    # Have to put dexes into a jar to combine them again.
+    return build_rule(
+        name = name,
+        tag = tag,
+        srcs = [dex_rule],
+        outs = [name + '.dex.jar'],
+        cmd = 'mv $SRCS classes.dex && %s -d -i classes.dex -o $OUT' % CONFIG.JARCAT_TOOL,
+        visibility = visibility,
+        building_description = 'Dexing...',
+        test_only = test_only,
+        deps = deps,
     )
 
 
@@ -189,7 +408,7 @@ def set_android_home(home, tools_version):
     CONFIG['AAPT_TOOL'] = join_path(build_tools_dir, 'aapt')
     CONFIG['DEX_TOOL'] = join_path(build_tools_dir, 'dx')
     CONFIG['ZIPALIGN_TOOL'] = join_path(build_tools_dir, 'zipalign')
-    major_version, _, _ = tools_version.partition('.')
-    CONFIG['ANDROID_JAR'] = join_path(home, 'platforms/android-' + major_version, 'android.jar')
+    CONFIG['MANIFEST_MERGER'] = '//third_party/android:manifest_merger'
+    CONFIG['ANDROID_JAR'] = '//third_party/android:android'
     # Downgrade these, the plz default is 8 which of course won't work for Android.
     package(java_target_level='7', java_source_level='7')
