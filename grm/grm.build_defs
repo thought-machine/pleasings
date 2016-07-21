@@ -59,6 +59,7 @@ def grm_library(name, src, deps=None, data=None, visibility=None, timeout=0):
             'grm': ':_%s#src' % name,
             'far': ':_%s#far' % name,
         },
+        visibility = visibility,
     )
 
 
