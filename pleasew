@@ -26,6 +26,7 @@ URL_BASE=`grep -i "^downloadlocation" .plzconfig | cut -d '=' -f 2 | tr -d ' '`
 if [ -z "$URL_BASE" ]; then
     URL_BASE=$DEFAULT_URL_BASE
 fi
+URL_BASE="${URL_BASE%/}"
 
 VERSION=`grep -i "^version" .plzconfig | cut -d '=' -f 2 | tr -d ' '`
 if [ -z "$VERSION" ]; then
