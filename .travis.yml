@@ -1,10 +1,12 @@
 sudo: false
 
+language: rust
+
 rust:
   - stable
 
 script:
-  - ./pleasew test
+  - ./pleasew test --plain_output
 
 before_install:
   - ./.travis_install.sh
