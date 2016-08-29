@@ -28,3 +28,4 @@ git:
 cache:
   directories:
     - $HOME/plz-cache
+    - $HOME/fst
