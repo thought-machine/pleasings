@@ -1,3 +1,3 @@
 subinclude('//grm')
 
-grm_init()
+grm_init(remote_libs = True)
