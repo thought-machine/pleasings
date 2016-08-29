@@ -10,9 +10,5 @@ export_file(
 cc_binary(
     name = 'test_main',
     srcs = ['grm_test_main.cc'],
-    linker_flags = ['-ldl'],
-    deps = [
-        '//third_party/grm:openfst',
-        '//third_party/grm:thrax',
-    ],
+    linker_flags = ['-lthrax -lfst -ldl'],
 )

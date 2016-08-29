@@ -1,0 +1,2 @@
+[buildconfig]
+grm-test-main = //grm:test_main

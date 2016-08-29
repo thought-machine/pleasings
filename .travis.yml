@@ -1,0 +1,36 @@
+sudo: false
+
+language: rust
+
+rust:
+  - stable
+
+script:
+  - ./pleasew update
+  - ./pleasew test --plain_output
+
+before_install:
+  - ./.travis_install.sh
+
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - binutils
+      - gcc-4.8
+      - g++-4.8
+      - unzip
+
+install:
+  - pip install --user cffi>=1.5.0
+
+git:
+  depth: 3
+
+cache:
+  directories:
+    - $HOME/plz-cache
+    - $HOME/.please
+    - $HOME/openfst
+    - $HOME/thrax

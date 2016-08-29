@@ -8,6 +8,6 @@ grm_library(
 
 grm_test(
     name = 'example_test',
-    ref = 'example.ref',
     far = ':example_far',
+    ref = 'example.ref',
 )
