@@ -37,7 +37,7 @@ else
     echo 'Using cached openfst.';
 fi
 
-if [ !-f "$HOME/thrax/lib/libthrax.so" ]; then
+if [ ! -f "$HOME/thrax/lib/libthrax.so" ]; then
     cd $HOME
     export CXXFLAGS="-I$HOME/fst/include"
     export LDFLAGS="-L$HOME/fst/lib"
