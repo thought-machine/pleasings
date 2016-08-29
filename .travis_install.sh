@@ -27,7 +27,8 @@ if [ ! -f "$HOME/fst/lib/libfst.so" ]; then
     curl -fsSLO http://openfst.org/twiki/pub/FST/FstDownload/openfst-1.5.4.tar.gz
     tar -xzf openfst-1.5.4.tar.gz
     cd openfst-1.5.4
-    export CC=g++-4.8
+    export CC=gcc-4.8
+    export CXX=g++-4.8
     ./configure --enable-const-fsts --enable-const-fsts --enable-far --enable-lookahead-fsts --enable-pdt --enable-mpdt --enable-static --prefix=$HOME/fst
     make -j4
     make install
@@ -43,7 +44,8 @@ if [ !-f "$HOME/thrax/lib/libthrax.so" ]; then
     curl -fsSLO http://www.openfst.org/twiki/pub/GRM/ThraxDownload/thrax-1.2.2.tar.gz
     tar -xzf thrax-1.2.2.tar.gz
     cd thrax-1.2.2
-    export CC=g++-4.8
+    export CC=gcc-4.8
+    export CXX=g++-4.8
     ./configure --enable-static --prefix=$HOME/fst
     make -j4
     make install
