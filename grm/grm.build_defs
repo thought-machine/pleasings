@@ -13,7 +13,6 @@ config (via `package(grm_test_main = '//my/package:test_main')`) or pass test_ma
 each grm_test rule.
 """
 
-
 def grm_library(name, src, deps=None, data=None, visibility=None, timeout=0):
     """Build rule for compiling a Thrax grammar.
 
@@ -62,7 +61,6 @@ def grm_library(name, src, deps=None, data=None, visibility=None, timeout=0):
         visibility = visibility,
     )
 
-
 def grm_test(name, ref, far, exclude=None, ignore_case=False, separator=None,
              test_main=None, deps=None, visibility=None, labels=None):
     """Build rule for compiling a test on a Thrax grammar.
@@ -81,7 +79,7 @@ def grm_test(name, ref, far, exclude=None, ignore_case=False, separator=None,
     separator = separator or CONFIG.GRM_TEST_SEPARATOR
     test_main = test_main or CONFIG.GRM_TEST_MAIN
     cmd = ' '.join([
-        '$TEST',
+        '$(location %s)' % test_main,
         '--far=$(location %s)' % far,
         '--exclude=$(location %s)' % exclude if exclude else '',
         '-o=test.results',
@@ -102,7 +100,6 @@ def grm_test(name, ref, far, exclude=None, ignore_case=False, separator=None,
         cmd = 'echo \'%s\' > $OUT' % cmd,
         labels = labels,
     )
-
 
 def extract_fst(name, src, rule, out=None, deps=None, visibility=None):
     """Build rule to extract a single FST from a .far.
@@ -126,7 +123,6 @@ def extract_fst(name, src, rule, out=None, deps=None, visibility=None):
         requires = ['far'],
     )
 
-
 def filter_far(name, src, rules, out=None, deps=None, visibility=None):
     """Build rule to cut down a .far to just the given rules.
 
@@ -148,13 +144,12 @@ def filter_far(name, src, rules, out=None, deps=None, visibility=None):
         requires = ['far'],
     )
 
-
 # Set these in the config so they can be overridden via package().
 # In future it would be nice to be able to configure this kind of thing in plzconfig
 # but it's currently not possible to add arbitrary sections to it.
 CONFIG.setdefault('GRM_TEST_MAIN', '//third_party/grm:test_main')
-CONFIG.setdefault('GRM_TEST_SEPARATOR', '\t')
 
+CONFIG.setdefault('GRM_TEST_SEPARATOR', '\t')
 
 def grm_init():
     """Call this once in the package containing test_main (typically third_party/grm).
