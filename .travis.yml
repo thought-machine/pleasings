@@ -9,7 +9,22 @@ script:
   - ./pleasew test --plain_output
 
 before_install:
-  - ./.travis_install.sh
+  - |
+ cat <<EOF > .plzconfig.local
+ [build]
+ path = $PATH:$HOME/fst/bin
+
+ [go]
+ goroot = $GOROOT
+
+ [cpp]
+ cctool = g++-4.8
+ defaultoptcflags = --std=c++11 -O2 -DNDEBUG -I $HOME/fst/include -L $HOME/fst/lib -Wl,-rpath $HOME/fst/lib
+
+ [cache]
+ dir = $HOME/plz-cache
+
+ EOF
 
 addons:
   apt:
@@ -30,4 +45,4 @@ git:
 cache:
   directories:
     - $HOME/plz-cache
-    - $HOME/fst
+    - $HOME/.please
