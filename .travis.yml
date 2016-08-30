@@ -8,8 +8,7 @@ rust:
 script:
   - ./pleasew test --plain_output
 
-before_install:
-  - |
+before_install: |
  cat <<EOF > .plzconfig.local
  [build]
  path = $PATH:$HOME/fst/bin
