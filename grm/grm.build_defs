@@ -11,10 +11,15 @@ rules and run grm_init(). That sets up a cc_binary target for the test main.
 If you want to put it somewhere else, that's fine, but you'll have to change it in the
 config (via `package(grm_test_main = '//my/package:test_main')`) or pass test_main to
 each grm_test rule.
+
+By default these rules assume that you have thraxcompiler / libthrax / libfst installed
+globally, but they also support downloading them and building against those. In the
+pleasings repo we illustrate this as it's very difficult to get them installed globally
+on Travis CI.
 """
 
-
-def grm_library(name, src, deps=None, data=None, visibility=None, timeout=0):
+def grm_library(name, src, deps=None, data=None, visibility=None, timeout=0,
+                thraxcompiler=None):
     """Build rule for compiling a Thrax grammar.
 
     Args:
@@ -24,9 +29,13 @@ def grm_library(name, src, deps=None, data=None, visibility=None, timeout=0):
       data: Static data files required for this rule.
       visibility: Rule visibility.
       timeout: Timeout (in seconds) for building this rule.
+      thraxcompiler: Command or rule to use for thraxcompiler. Defaults to whatever
+                     is set in the config, which by default is 'thraxcompiler'.
     """
     data = data or []
     deps = deps or []
+    thraxcompiler = thraxcompiler or CONFIG.THRAXCOMPILER
+    thraxcompiler_tool = '$(exe %s)' % thraxcompiler if thraxcompiler.startswith('//') else thraxcompiler
     # thraxcompiler needs access to both the sources and compiled artifacts
     # of its dependencies. We could output them from the .far rule as well
     # but that makes it awkward to use in other rules. Better to encapsulate
@@ -44,12 +53,13 @@ def grm_library(name, src, deps=None, data=None, visibility=None, timeout=0):
             'data': data,
         },
         deps = deps + [':_%s#src' % name],
-        cmd = 'thraxcompiler --input_grammar=$SRCS_SRC --output_far=$OUT',
+        cmd = thraxcompiler_tool + ' --input_grammar=$SRCS_SRC --output_far=$OUT' ,
         outs = [name + '.far'],
         visibility = visibility,
         build_timeout = timeout,
         requires = ['grm', 'far'],
         needs_transitive_deps = True,
+        tools = [thraxcompiler],
     )
     filegroup(
         name = name,
@@ -81,7 +91,7 @@ def grm_test(name, ref, far, exclude=None, ignore_case=False, separator=None,
     separator = separator or CONFIG.GRM_TEST_SEPARATOR
     test_main = test_main or CONFIG.GRM_TEST_MAIN
     cmd = ' '.join([
-        '$TEST',
+        '$(location %s)' % test_main,
         '--far=$(location %s)' % far,
         '--exclude=$(location %s)' % exclude if exclude else '',
         '-o=test.results',
@@ -104,7 +114,7 @@ def grm_test(name, ref, far, exclude=None, ignore_case=False, separator=None,
     )
 
 
-def extract_fst(name, src, rule, out=None, deps=None, visibility=None):
+def extract_fst(name, src, rule, out=None, deps=None, visibility=None, farextract=None):
     """Build rule to extract a single FST from a .far.
 
     Args:
@@ -114,18 +124,22 @@ def extract_fst(name, src, rule, out=None, deps=None, visibility=None):
       out: Name of output file to create. Defaults to rule + '.fst'.
       deps: Dependent build rules.
       visibility: Rule visibility.
+      farextract: Tool to use for farextract. Defaults to whatever's set in the config,
+                  which itself defaults to 'farextract'.
     """
+    farextract = farextract or CONFIG.FAREXTRACT
+    farextract_tool = '$(exe %s)' % farextract if farextract.startswith('//') else farextract
     out = out or (rule + '.fst')
     genrule(
         name = name,
         deps = deps,
         srcs = [src],
-        cmd = 'farextract --keys=%s $SRC && mv %s ${OUT}' % (rule, rule),
+        cmd = '%s --keys=%s $SRC && mv %s ${OUT}' % (farextract_tool, rule, rule),
         out = out,
         visibility=visibility,
         requires = ['far'],
+        tools = [farextract],
     )
-
 
 def filter_far(name, src, rules, out=None, deps=None, visibility=None):
     """Build rule to cut down a .far to just the given rules.
@@ -154,30 +168,122 @@ def filter_far(name, src, rules, out=None, deps=None, visibility=None):
 # but it's currently not possible to add arbitrary sections to it.
 CONFIG.setdefault('GRM_TEST_MAIN', '//third_party/grm:test_main')
 CONFIG.setdefault('GRM_TEST_SEPARATOR', '\t')
+CONFIG.setdefault('THRAXCOMPILER', 'thraxcompiler')
+CONFIG.setdefault('FAREXTRACT', 'farextract')
+CONFIG.setdefault('OPENFST_LIB', '')
+CONFIG.setdefault('THRAX_LIB', '')
+
+_DEFAULT_OPENFST_URL = 'https://get.please.build/third_party/openfst-1.5.1.tar.gz'
+_DEFAULT_THRAX_URL = 'https://get.please.build/third_party/thrax-1.2.1.tar.gz'
 
 
-def grm_init():
-    """Call this once in the package containing test_main (typically third_party/grm).
+def grm_init(remote_libs=False, openfst_url=_DEFAULT_OPENFST_URL, thrax_url=_DEFAULT_THRAX_URL):
+    """Call this once in the package that will contain test_main (typically third_party/grm).
 
     It will set up rules to download the source code for the test binary
     and compile it. You'll of course need to have libfst, libfstfar and libthrax
     installed for it all to work.
+
+    It can also set up rules to download the libraries which you can depend on for
+    other tools / libraries, by passing remote_libs = True.
     """
     github_file(
         name = 'fetch_test_main',
         repo = 'thought-machine/pleasings',
         file = 'grm/grm_test_main.cc',
     )
-    cc_binary(
-        name = 'test_main',
-        srcs = [':fetch_test_main'],
+    if remote_libs:
+        # The build rule will find the deps because they're in our work directory.
+        linker_flags = ['-ldl']
+        deps = [':openfst', ':thrax']
+    else:
         linker_flags = [
             # We don't know which of these libfst will get installed in, but neither is
             # on the linker path by default. pkg-config would be preferable but of course
             # we can't rely on that being set up for us.
             '-L/usr/local/lib/fst',
             '-L/usr/lib/fst',
-            '-lthrax -lfst  -lfstfar -ldl',
-        ],
+            '-lthrax -lfst -lfstfar -ldl',
+        ]
+        deps = None
+
+    cc_binary(
+        name = 'test_main',
+        srcs = [':fetch_test_main'],
+        linker_flags = linker_flags,
+        deps = deps,
+        visibility = ['PUBLIC'],
+    )
+
+    if not remote_libs:
+        return
+
+    # These rules expect to download precompiled artifacts. It would of course be nicer to
+    # compile them ourselves but openfst takes a good long time and we can't get any
+    # incrementality without understanding the Makefile.
+    remote_file(
+        name = 'openfst_download',
+        url = openfst_url,
+        hashes = ['6d1f809655c2695a0a5743fac580f13ee2901c47'],
+    )
+    genrule(
+        name = '_openfst#lib',
+        srcs = [':openfst_download'],
+        outs = ['openfst/lib'],
+        cmd = 'tar -xf $SRCS fst/lib && mv fst/lib openfst',
+    )
+    genrule(
+        name = '_openfst#include',
+        srcs = [':openfst_download'],
+        outs = ['openfst/include'],
+        cmd = 'tar -xf $SRCS fst/include && mv fst/include openfst',
+    )
+    filegroup(
+        name = 'openfst',
+        srcs = [':_openfst#lib'],
+        provides = {
+            'cc_hdrs': ':_openfst#include',
+        },
+        visibility = ['PUBLIC'],
+    )
+    genrule(
+        name = 'farextract',
+        srcs = [':openfst_download'],
+        outs = ['farextract'],
+        cmd = 'tar -xf $SRCS fst/bin/farextract --strip-components 2',
+        binary = True,
+        visibility = ['PUBLIC'],
+    )
+    remote_file(
+        name = 'thrax_download',
+        url = thrax_url,
+        hashes = ['acc842057a61b4c82e4e240817bd08db50d360dd'],
+    )
+    genrule(
+        name = '_thrax#lib',
+        srcs = [':thrax_download'],
+        outs = ['thrax/lib'],
+        cmd = 'tar -xf $SRCS fst/lib && mv fst/lib thrax',
+    )
+    genrule(
+        name = '_thrax#include',
+        srcs = [':thrax_download'],
+        outs = ['thrax/include'],
+        cmd = 'tar -xf $SRCS fst/include && mv fst/include thrax',
+    )
+    filegroup(
+        name = 'thrax',
+        srcs = [':_thrax#lib'],
+        provides = {
+            'cc_hdrs': ':_thrax#include',
+        },
+        visibility = ['PUBLIC'],
+    )
+    genrule(
+        name = 'thraxcompiler',
+        srcs = [':thrax_download'],
+        outs = ['thraxcompiler'],
+        cmd = 'tar -xf $SRCS fst/bin/thraxcompiler --strip-components 2',
+        binary = True,
         visibility = ['PUBLIC'],
     )
