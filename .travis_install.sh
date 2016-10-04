@@ -23,14 +23,14 @@ EOF
 
 if [ ! -f "$HOME/openfst/bin/farextract" ]; then
     rm -rf "$HOME/openfst"
-    curl -fSSL https://get.please.build/ci/openfst-1.5.4_linux_amd64.tar.gz | tar -xzC $HOME
+    curl -fsSL https://get.please.build/ci/openfst-1.5.4_linux_amd64.tar.gz | tar -xzC $HOME
 else
     echo 'Using cached openfst'
 fi
 
 if [ ! -f "$HOME/thrax/bin/thraxcompiler" ]; then
     rm -rf "$HOME/thrax"
-    curl -fSSL https://get.please.build/ci/thrax-1.5.4_linux_amd64.tar.gz | tar -xzC $HOME
+    curl -fsSL https://get.please.build/ci/thrax-1.2.2_linux_amd64.tar.gz | tar -xzC $HOME
 else
     echo 'Using cached thrax'
 fi
