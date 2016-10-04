@@ -14,7 +14,7 @@ goroot = $GOROOT
 
 [cpp]
 cctool = g++-4.8
-defaultoptcflags = --std=c++11 -O2 -DNDEBUG -I $HOME/openfst/include -L $HOME/openfst/lib -I $HOME/thrax/include -L $HOME/thrax/lib
+defaultoptcflags = --std=c++11 -O2 -DNDEBUG -I $HOME/openfst/include -L $HOME/openfst/lib -I $HOME/thrax/include -L $HOME/thrax/lib -Wl,-rpath $HOME/openfst/lib -Wl,-rpath $HOME/thrax/lib
 
 [cache]
 dir = $HOME/plz-cache
