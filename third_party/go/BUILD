@@ -52,3 +52,8 @@ go_get(
         ':protobuf',
     ],
 )
+
+go_get(
+    name = 'go-flags',
+    get = 'github.com/jessevdk/go-flags',
+)

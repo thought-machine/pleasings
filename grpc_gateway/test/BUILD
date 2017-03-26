@@ -1,5 +1,5 @@
 # Example usage of grpc_gateway_library rules.
-subinclude('//grpc:grpc_gateway')
+subinclude('//grpc_gateway')
 
 grpc_gateway_library(
     name = 'kitten',
@@ -16,6 +16,9 @@ go_binary(
     srcs = ['gateway_main.go'],
     deps = [
         ':kitten',
+        '//third_party/go:context',
+        '//third_party/go:go-flags',
+        '//third_party/go:grpc',
         '//third_party/go:grpc-gateway-runtime',
     ],
 )

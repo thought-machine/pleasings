@@ -11,7 +11,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	gw "grpc/test/kitten"
+	gw "grpc_gateway/test/kitten"
 )
 
 var opts struct {
@@ -24,11 +24,13 @@ func run() error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	log.Printf("Connecting client to %s...", opts.Endpoint)
 	mux := runtime.NewServeMux()
 	err := gw.RegisterPetShopHandlerFromEndpoint(ctx, mux, opts.Endpoint, []grpc.DialOption{grpc.WithInsecure()})
 	if err != nil {
 		return err
 	}
+	log.Printf("Serving on port %d...", opts.Port)
 	return http.ListenAndServe(fmt.Sprintf(":%d", opts.Port), mux)
 }
 

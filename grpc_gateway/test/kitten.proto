@@ -6,7 +6,10 @@ service PetShop {
     // Supplies one kitten to the caller, of the requested breed.
     rpc GetKitten(GetKittenRequest) returns (GetKittenResponse) {
         option (google.api.http) = {
-            get: "/api/v1/kitten/{breed}"
+            get: "/api/v1/kitten"
+            additional_bindings {
+                get: "/api/v1/kitten/{breed}"
+            }
         };
     }
 }

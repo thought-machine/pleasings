@@ -1,9 +1,18 @@
 """Implements a sample gRPC server which can be accessed through the gateway."""
 
-import argparse, time
+import argparse, sys, time
 from concurrent import futures
 from third_party.python import grpc
-from grpc.test import kitten_pb2
+
+# Some jiggling needed with modules since there are two things that both want
+# to be 'import google'. If this was more than a toy example we might try
+# to solve this more elegantly
+from third_party.proto.google import api
+sys.modules['google.api'] = api
+import google
+google.api = api
+
+from grpc_gateway.test import kitten_pb2
 
 
 class PetShop(kitten_pb2.PetShopServicer):
@@ -24,8 +33,9 @@ def main(args):
     server.add_insecure_port('[::]:%d' % args.port)
     server.start()
     try:
+        print('Serving on port %d...' % args.port)
         while True:
-            time.sleep(_ONE_DAY_IN_SECONDS)
+            time.sleep(86400)
     except KeyboardInterrupt:
         server.stop(0)
 
