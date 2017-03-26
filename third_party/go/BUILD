@@ -36,3 +36,19 @@ go_get(
     get = 'github.com/golang/protobuf/protoc-gen-go',
     deps = [':protobuf'],
 )
+
+go_get(
+    name = 'annotations',
+    get = 'google.golang.org/genproto/googleapis/api/annotations',
+    deps = [':protobuf'],
+)
+
+go_get(
+    name = 'grpc-gateway-runtime',
+    exported_deps = [':annotations'],
+    get = 'github.com/grpc-ecosystem/grpc-gateway/runtime',
+    deps = [
+        ':grpc',
+        ':protobuf',
+    ],
+)

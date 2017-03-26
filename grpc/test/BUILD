@@ -10,3 +10,12 @@ grpc_swagger_library(
     name = 'kitten_swagger',
     srcs = [':kitten'],
 )
+
+go_binary(
+    name = 'kitten_server',
+    srcs = ['main.go'],
+    deps = [
+        ':kitten',
+        '//third_party/go:grpc-gateway-runtime',
+    ],
+)

@@ -2,15 +2,22 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/jessevdk/go-flags"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
 	gw "grpc/test/kitten"
 )
+
+var opts struct {
+	Port     int    `short:"p" long:"port" default:"8080" description:"Port to serve on"`
+	Endpoint string `short:"e" long:"endpoint" default:"localhost:9090" description:"Endpoint to connect to"`
+}
 
 func run() error {
 	ctx := context.Background()
@@ -18,19 +25,17 @@ func run() error {
 	defer cancel()
 
 	mux := runtime.NewServeMux()
-	opts := []grpc.DialOption{grpc.WithInsecure()}
-	err := gw.RegisterYourServiceHandlerFromEndpoint(ctx, mux, *echoEndpoint, opts)
+	err := gw.RegisterPetShopHandlerFromEndpoint(ctx, mux, opts.Endpoint, []grpc.DialOption{grpc.WithInsecure()})
 	if err != nil {
 		return err
 	}
-
-	return http.ListenAndServe(":8080", mux)
+	return http.ListenAndServe(fmt.Sprintf(":%d", opts.Port), mux)
 }
 
 func main() {
-	defer glog.Flush()
-
-	if err := run(); err != nil {
-		glog.Fatal(err)
+	if _, err := flags.Parse(&opts); err != nil {
+		log.Fatal(err)
+	} else if err := run(); err != nil {
+		log.Fatal(err)
 	}
 }

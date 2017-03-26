@@ -14,6 +14,15 @@ def grpc_gateway_library(name, srcs, deps=None, visibility=None, languages=None,
     but the usual parts will be there for other languages so you don't need another
     grpc_library rule for them.
 
+    You will need to set the following variables in the [buildconfig] section of .plzconfig:
+      grpc-gateway-plugin: protoc plugin rule that is used for codegen. You can set this up
+                           with a go_get rule to get github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway.
+      grpc-gateway-dep: proto dependency for grpc-gateway protos. Typically is a grpc_gateway_api rule.
+      grpc-gateway-go-dep: runtime grpc-gateway library. Needed to compile the Go rules.
+                           You can again use a go_get rule, this time to fetch github.com/grpc-ecosystem/grpc-gateway/runtime.
+    The pleasings repo shows an example of how one could set these up, since the required
+    dependencies are a little complex it may be easier to follow by example.
+
     It also generates Swagger definitions in .swagger.json files with a language tag of 'swagger'.
     See grpc_swagger_library for more information on those.
     Note that for these to be generated you must set grpc-swagger-plugin in your .plzconfig.
@@ -31,9 +40,9 @@ def grpc_gateway_library(name, srcs, deps=None, visibility=None, languages=None,
       root_dir (str): The directory that the protos are compiled relative to. Useful if your
                       proto files have import statements that are not relative to the repo root.
     """
-    if not CONFIG.get('GRPC_GATEWAY_PLUGIN') or not CONFIG.get('GRPC_GATEWAY_DEP'):
-        raise ParseError('You must set grpc-gateway-plugin and grpc-gateway-dep in the [buildconfig] '
-                         'section of your .plzconfig in order to use grpc_gateway rules.')
+    if not CONFIG.get('GRPC_GATEWAY_PLUGIN') or not CONFIG.get('GRPC_GATEWAY_DEP') or not CONFIG.get('GRPC_GATEWAY_GO_DEP'):
+        raise ParseError('You must set grpc-gateway-plugin, grpc-gateway-dep and grpc-gateway-go-dep '
+                         'in the [buildconfig] section of your .plzconfig in order to use grpc_gateway rules.')
 
     languages = languages or CONFIG.PROTO_LANGUAGES
     if isinstance(languages, list):
@@ -135,7 +144,7 @@ def _grpc_gateway_def():
             '--grpc-gateway_out=logtostderr=true:$TMP_DIR',
         ],
         'tools': [CONFIG.PROTOC_GO_PLUGIN, CONFIG.GRPC_GATEWAY_PLUGIN],
-        'deps': [CONFIG.PROTO_GO_DEP, CONFIG.GRPC_GO_DEP],
+        'deps': [CONFIG.PROTO_GO_DEP, CONFIG.GRPC_GO_DEP, CONFIG.GRPC_GATEWAY_GO_DEP],
     })
     return d
 
