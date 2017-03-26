@@ -6,7 +6,7 @@ service PetShop {
     // Supplies one kitten to the caller, of the requested breed.
     rpc GetKitten(GetKittenRequest) returns (GetKittenResponse) {
         option (google.api.http) = {
-            get: "/v1/kitten/{breed}"
+            get: "/api/v1/kitten/{breed}"
         };
     }
 }
@@ -27,6 +27,7 @@ message Kitten {
 }
 
 message GetKittenRequest {
+    // Must be one of the Breed enum (grpc-gateway doesn't support enums as path params currently)
     string breed = 1;
 }
 
