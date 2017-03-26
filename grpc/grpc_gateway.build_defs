@@ -1,0 +1,133 @@
+"""Build rules to generate grpc-gateway proxy code.
+
+See https://github.com/grpc-ecosystem/grpc-gateway for more information.
+"""
+
+def grpc_gateway_library(name, srcs, deps=None, visibility=None, languages=None,
+                         labels=None, test_only=False, root_dir=''):
+    """Defines a rule for a grpc-gateway library.
+
+    Note that this extends the existing grpc_library rule to add extra codegen for
+    grpc-gateway. Since grpc-gateway is Go only it will only add extra codegen for Go,
+    but the usual parts will be there for other languages so you don't need another
+    grpc_library rule for them.
+
+    It also generates Swagger definitions in .swagger.json files with a language tag of 'swagger'.
+    See grpc_swagger_library for more information on those.
+    Note that for these to be generated you must set grpc-swagger-plugin in your .plzconfig.
+
+    Args:
+      name (str): Name of the rule
+      srcs (list): Input .proto files.
+      deps (list): Dependencies (other grpc_gateway_library, grpc_library or proto_library rules)
+      visibility (list): Visibility specification for the rule.
+      languages (list | dict): List of languages to generate rules for, chosen from the set {cc, py, go, java, swagger}.
+                               Alternatively, a dict mapping the language name to a definition of how to build it
+                               (see proto_language for more details of the values).
+      labels (list): List of labels to apply to this rule.
+      test_only (bool): If True, this rule can only be used by test rules.
+      root_dir (str): The directory that the protos are compiled relative to. Useful if your
+                      proto files have import statements that are not relative to the repo root.
+    """
+    if not CONFIG.get('GRPC_GATEWAY_PLUGIN') or not CONFIG.get('GRPC_GATEWAY_DEP'):
+        raise ParseError('You must set grpc-gateway-plugin and grpc-gateway-dep in the [buildconfig] '
+                         'section of your .plzconfig in order to use grpc_gateway rules.')
+
+    languages = languages or CONFIG.PROTO_LANGUAGES
+    if isinstance(languages, list):
+        languages = {x: None for x in languages}
+    # Copy & modify the existing Go definition so we don't have to reinvent wheels.
+    go = grpc_languages().get('go').copy()
+    go.update({
+        'extensions': ['.pb.go', '.pb.gw.go'],
+        'protoc_flags': [
+            '--plugin=protoc-gen-go=$TOOL2',
+            '--plugin=protoc-gen-grpc-gateway=$TOOL3',
+            '--grpc-gateway_out=logtostderr=true:$TMP_DIR',
+        ],
+        'tools': [CONFIG.PROTOC_GO_PLUGIN, CONFIG.GRPC_GATEWAY_PLUGIN],
+        'deps': [CONFIG.PROTO_GO_DEP, CONFIG.GRPC_GO_DEP, CONFIG.GRPC_GATEWAY_DEP],
+    })
+    languages['swagger'] = proto_language(
+        language = 'swagger',
+        extensions = ['.swagger.json'],
+        func = lambda name, srcs, deps, test_only: filegroup(
+            name = name,
+            srcs = srcs,
+            deps = deps,
+            test_only = test_only,
+            requires = ['swagger'],
+        ),
+    )
+    grpc_library(
+        name = name,
+        srcs = srcs,
+        deps = deps,
+        languages = languages,
+        labels = (labels or []) + ['grpc-gateway'],
+        test_only = test_only,
+        root_dir = root_dir,
+        visibility = visibility,
+    )
+
+
+def grpc_swagger_library(name, srcs, deps=None, visibility=None, test_only=False):
+    """Defines a rule to collect Swagger outputs from grpc_gateway_library rules.
+
+    This doesn't really do anything new, it just provides an obvious target to build to
+    get the .swagger.json files. If you want to write other rules to depend on it
+    directly, you could do that more elegantly using requires (since that's all this does).
+
+    Args:
+      name (str): Name of the rule
+      srcs (list): grpc_gateway_library rules to collect.
+      deps (list): Other dependencies
+      visibility (list): Visibility specification for the rule.
+      test_only (bool): If True, this rule can only be used by test rules.
+    """
+    if not CONFIG.get('GRPC_SWAGGER_PLUGIN'):
+        raise ParseError('You must set grpc-swagger-plugin in the [buildconfig] section of '
+                         'your .plzconfig to use grpc_swagger_library')
+    filegroup(
+        name = name,
+        srcs = srcs,
+        deps = deps,
+        visibility = visibility,
+        test_only = test_only,
+        requires = ['swagger'],
+    )
+
+
+def grpc_gateway_api(name, repo='https://github.com/grpc-ecosystem/grpc-gateway',
+                     dir='third_party/googleapis/google/api', deps=None, visibility=None):
+    """Defines a rule to fetch the googleapis dependency of grpc-gateway.
+
+    You would typically call this rule once in third_party somewhere, and
+    refer to it in grpc-gateway-dep in your .plzconfig.
+
+    In the future Please may gain the ability for rules to register this
+    type of thing automatically.
+
+    Args:
+      name (str): Name of the rule.
+      repo (str): Repository to fetch files from. Defaults to grpc-gateway's.
+      dir (str): Subdirectory in the repo to fetch files from.
+      deps (list): Any other dependencies.
+      visibility (list): Visibility spec of the rule.
+    """
+    github_file(
+        name = '_%s#annotations' % name,
+        repo = repo,
+        file = join_path(dir, 'annotations.proto'),
+    )
+    github_file(
+        name = '_%s#http' % name,
+        repo = repo,
+        file = join_path(dir, 'http.proto'),
+    )
+    proto_library(
+        name = name,
+        srcs = [':_%s#annotations' % name, ':_%s#http' % name],
+        deps = deps,
+        visibility = visibility,
+    )
