@@ -3,6 +3,8 @@
 See https://github.com/grpc-ecosystem/grpc-gateway for more information.
 """
 
+
+
 def grpc_gateway_library(name, srcs, deps=None, visibility=None, languages=None,
                          labels=None, test_only=False, root_dir=''):
     """Defines a rule for a grpc-gateway library.
@@ -36,39 +38,19 @@ def grpc_gateway_library(name, srcs, deps=None, visibility=None, languages=None,
     languages = languages or CONFIG.PROTO_LANGUAGES
     if isinstance(languages, list):
         languages = {x: None for x in languages}
-    # Copy & modify the existing Go definition so we don't have to reinvent wheels.
-    go = grpc_languages().get('go').copy()
-    go.update({
-        'extensions': ['.pb.go', '.pb.gw.go'],
-        'protoc_flags': [
-            '--plugin=protoc-gen-go=$TOOL2',
-            '--plugin=protoc-gen-grpc-gateway=$TOOL3',
-            '--grpc-gateway_out=logtostderr=true:$TMP_DIR',
-            '-I$(dir %s)' % CONFIG.GRPC_GATEWAY_DEP,
-        ],
-        'tools': [CONFIG.PROTOC_GO_PLUGIN, CONFIG.GRPC_GATEWAY_PLUGIN],
-        'deps': [CONFIG.PROTO_GO_DEP, CONFIG.GRPC_GO_DEP, CONFIG.GRPC_GATEWAY_DEP],
-    })
-    languages['swagger'] = proto_language(
-        language = 'swagger',
-        extensions = ['.swagger.json'],
-        func = lambda name, srcs, deps, test_only: filegroup(
-            name = name,
-            srcs = srcs,
-            deps = deps,
-            test_only = test_only,
-            requires = ['swagger'],
-        ),
-    )
+    languages['go'] = _grpc_gateway_def()
+    languages['swagger'] = _swagger_def()
     grpc_library(
         name = name,
         srcs = srcs,
-        deps = deps,
+        deps = (deps or []) + [CONFIG.GRPC_GATEWAY_DEP],
         languages = languages,
         labels = (labels or []) + ['grpc-gateway'],
         test_only = test_only,
         root_dir = root_dir,
         visibility = visibility,
+        # Everything needs to know where to find this dependency.
+        protoc_flags = ['-I.', '-I$TMP_DIR/$(dir %s)' % CONFIG.GRPC_GATEWAY_DEP],
     )
 
 
@@ -128,12 +110,47 @@ def grpc_gateway_api(name, repo='https://github.com/grpc-ecosystem/grpc-gateway'
         file = join_path(dir, 'http.proto'),
         out = 'google/api/http.proto',
     )
+    languages = {x: None for x in CONFIG.PROTO_LANGUAGES}
+    languages['swagger'] = _swagger_def()
     proto_library(
         name = name,
         srcs = [annotations, http],
         deps = deps,
         visibility = visibility,
+        languages = languages,
         root_dir = '$PKG',
         # See https://github.com/golang/protobuf/issues/222; this seems to be required for now.
         labels = ['proto:go-map: google/protobuf/descriptor.proto=github.com/golang/protobuf/protoc-gen-go/descriptor'],
+    )
+
+
+def _grpc_gateway_def():
+    # Copy & modify the existing Go definition so we don't have to reinvent wheels.
+    d = grpc_languages().get('go').copy()
+    d.update({
+        'extensions': ['.pb.go', '.pb.gw.go'],
+        'protoc_flags': [
+            '--plugin=protoc-gen-go=$TOOL2',
+            '--plugin=protoc-gen-grpc-gateway=$TOOL3',
+            '--grpc-gateway_out=logtostderr=true:$TMP_DIR',
+        ],
+        'tools': [CONFIG.PROTOC_GO_PLUGIN, CONFIG.GRPC_GATEWAY_PLUGIN],
+        'deps': [CONFIG.PROTO_GO_DEP, CONFIG.GRPC_GO_DEP],
+    })
+    return d
+
+
+def _swagger_def():
+    return proto_language(
+        language = 'swagger',
+        extensions = ['.swagger.json'],
+        func = lambda name, srcs, deps, test_only: filegroup(
+            name = name,
+            srcs = srcs,
+            deps = deps,
+            test_only = test_only,
+            requires = ['swagger'],
+        ),
+        protoc_flags = ['--plugin=protoc-gen-swagger=$TOOL2'],
+        tools = [CONFIG.GRPC_SWAGGER_PLUGIN],
     )

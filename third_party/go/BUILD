@@ -7,14 +7,9 @@ go_get(
 )
 
 go_get(
-    name = 'protoc-gen-grpc-swagger',
+    name = 'protoc-gen-swagger',
     binary = True,
-    get = 'github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-swagger',
-)
-
-go_get(
-    name = 'googleapis',
-    get = 'github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis',
+    get = 'github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger',
 )
 
 go_get(

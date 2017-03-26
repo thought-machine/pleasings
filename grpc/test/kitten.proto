@@ -27,7 +27,7 @@ message Kitten {
 }
 
 message GetKittenRequest {
-    Breed breed = 1;
+    string breed = 1;
 }
 
 message GetKittenResponse {
