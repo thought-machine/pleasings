@@ -44,6 +44,7 @@ def grpc_gateway_library(name, srcs, deps=None, visibility=None, languages=None,
             '--plugin=protoc-gen-go=$TOOL2',
             '--plugin=protoc-gen-grpc-gateway=$TOOL3',
             '--grpc-gateway_out=logtostderr=true:$TMP_DIR',
+            '-I$(dir %s)' % CONFIG.GRPC_GATEWAY_DEP,
         ],
         'tools': [CONFIG.PROTOC_GO_PLUGIN, CONFIG.GRPC_GATEWAY_PLUGIN],
         'deps': [CONFIG.PROTO_GO_DEP, CONFIG.GRPC_GO_DEP, CONFIG.GRPC_GATEWAY_DEP],
@@ -115,19 +116,24 @@ def grpc_gateway_api(name, repo='https://github.com/grpc-ecosystem/grpc-gateway'
       deps (list): Any other dependencies.
       visibility (list): Visibility spec of the rule.
     """
-    github_file(
+    annotations = github_file(
         name = '_%s#annotations' % name,
         repo = repo,
         file = join_path(dir, 'annotations.proto'),
+        out = 'google/api/annotations.proto',
     )
-    github_file(
+    http = github_file(
         name = '_%s#http' % name,
         repo = repo,
         file = join_path(dir, 'http.proto'),
+        out = 'google/api/http.proto',
     )
     proto_library(
         name = name,
-        srcs = [':_%s#annotations' % name, ':_%s#http' % name],
+        srcs = [annotations, http],
         deps = deps,
         visibility = visibility,
+        root_dir = '$PKG',
+        # See https://github.com/golang/protobuf/issues/222; this seems to be required for now.
+        labels = ['proto:go-map: google/protobuf/descriptor.proto=github.com/golang/protobuf/protoc-gen-go/descriptor'],
     )

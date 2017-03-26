@@ -1,3 +1,5 @@
+package(default_visibility = ['PUBLIC'])
+
 pip_library(
     name = 'protobuf',
     version = '3.2.0',
