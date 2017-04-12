@@ -16,6 +16,9 @@ goroot = $GOROOT
 cctool = g++-4.8
 defaultoptcflags = --std=c++11 -O2 -DNDEBUG -I $HOME/openfst/include -L $HOME/openfst/lib -I $HOME/thrax/include -L $HOME/thrax/lib -Wl,-rpath $HOME/openfst/lib -Wl,-rpath $HOME/thrax/lib
 
+[proto]
+protoctool = ${HOME}/protoc
+
 [cache]
 dir = $HOME/plz-cache
 
@@ -33,4 +36,14 @@ if [ ! -f "$HOME/thrax/bin/thraxcompiler" ]; then
     curl -fsSL https://get.please.build/ci/thrax-1.2.2_linux_amd64.tar.gz | tar -xzC $HOME
 else
     echo 'Using cached thrax'
+fi
+
+if [ ! -f "$HOME/protoc" ]; then
+    rm -rf "$HOME/protoc"
+    echo 'Downloading protobuf...'
+    curl -fsSLO https://github.com/google/protobuf/releases/download/v3.0.0/protoc-3.0.0-linux-x86_64.zip
+    unzip protoc-3.0.0-linux-x86_64.zip bin/protoc
+    mv bin/protoc "$HOME/protoc"
+else
+    echo 'Using cached protobuf.';
 fi
