@@ -1,2 +1,7 @@
 [buildconfig]
 grm-test-main = //grm:test_main
+
+[java]
+javacworker = //infrastructure/build_tools/javac_worker
+sourcelevel = 7
+targetlevel = 7
