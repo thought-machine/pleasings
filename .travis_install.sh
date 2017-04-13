@@ -47,3 +47,12 @@ if [ ! -f "$HOME/protoc" ]; then
 else
     echo 'Using cached protobuf.';
 fi
+
+if [ ! -f "$HOME/grpc_cpp_plugin" ]; then
+    rm -rf "$HOME/grpc_cpp_plugin"
+    echo 'Downloading grpc_cpp_plugin...'
+    curl -fsSLo "$HOME/grpc_cpp_plugin" https://get.please.build/third_party/binary/grpc_cpp_plugin-1.1.1
+    chmod +x "$HOME/grpc_cpp_plugin"
+else
+    echo 'Using cached grpc_cpp_plugin.';
+fi
