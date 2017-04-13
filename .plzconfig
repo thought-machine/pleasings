@@ -11,3 +11,8 @@ grpcjavaplugin = //third_party/java:protoc-gen-grpc-java
 
 [python]
 moduledir = third_party.python
+
+[java]
+javacworker = //infrastructure/build_tools/javac_worker
+sourcelevel = 7
+targetlevel = 7
