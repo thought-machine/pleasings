@@ -1,3 +1,5 @@
+subinclude('//js:yarn')
+
 remote_file(
     name = 'yarn',
     binary = True,
@@ -8,11 +10,13 @@ remote_file(
 yarn_library(
     name = 'babel-cli',
     version = '6.24.1',
+    flat = True,
     visibility = ['PUBLIC'],
 )
 
 yarn_library(
     name = 'jest',
     version = '20.0.0',
+    flat = True,
     visibility = ['PUBLIC'],
 )

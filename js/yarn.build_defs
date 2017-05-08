@@ -1,0 +1,143 @@
+def yarn_library(name, version, package_name='', package_json='package.json', lock_file='yarn.lock',
+                 flat=False, patches=None, hashes=None, test_only=False, visibility=None, deps=None):
+    """Install a third-party library using Yarn.
+
+    The typical workflow for this is to construct a package.json using `yarn add`, then
+    create a set of yarn_library rules for the top-level packages you added (i.e. the ones
+    in the `dependencies` section of package.json). Please will generate appropriate other
+    rules for each other dependency.
+
+    Args:
+      name (str): Name of the rule.
+      version (str): Version of the package to install.
+      package_name (str): Name of the package to install. Defaults to the same as `name`.
+      package_json (str): package.json file describing what to install. Defaults to 'package.json'.
+      lock_file (str): yarn.lock file fixing dependency versions. Defaults to 'yarn.lock'.
+      flat (bool): Flattens installed packages. Defaults to False - for this to work you must have
+                   previously added the package using `yarn add --flat`.
+      patches (list): List of patch files to apply after install.
+      hashes (list): List of hashes that outputs must match.
+      test_only (bool): If True, can only be depended on by test rules.
+      visibility (list): Visibility declaration for this rule.
+      deps (list): Any other dependencies of the rule.
+    """
+    package_name = package_name or name
+    deps = deps or []
+    srcs = {
+        'package': [package_json],
+        'lock': [lock_file],
+    }
+
+    # Generate a rule to analyse the dependencies of this rule & generate new rules & dependencies.
+    deps_rule = build_rule(
+        name = name,
+        tag = 'deps',
+        srcs = {
+            'package': [package_json],
+            'lock': [lock_file],
+        },
+        cmd = 'mv $SRCS_PACKAGE package.json && mv $SRCS_LOCK yarn.lock && $TOOL install && $TOOL list --depth 2',
+        post_build = _generate_yarn_deps_rule(name, flat, package_json, lock_file),
+        tools = [CONFIG.get('YARN_TOOL', 'yarn')],
+        requires = ['js'],
+    )
+    return _yarn_library(
+        name = name,
+        version = version,
+        deps = deps + [deps_rule],
+        patches = patches,
+        hashes = hashes,
+        visibility = visibility,
+        test_only = test_only,
+    )
+
+
+def _yarn_library(name, version, deps, flat=False, package_json='package.json', lock_file='yarn.lock',
+                  patches=None, hashes=None, visibility=None, test_only=None):
+    srcs = {
+        'package': [package_json],
+        'lock': [lock_file],
+    }
+    preamble = 'mv $SRCS_PACKAGE package.json && mv $SRCS_LOCK yarn.lock && '
+
+    # Need a mutex since we can run several of these in parallel.
+    # Also note that it is not very efficient - this installs everything into the tmp dir and plz copies only parts of it.
+    # AFAICT there is not a way to get yarn to install only a single package with no dependencies?
+    cmd = preamble + '$TOOL install --pure-lockfile --modules-folder . --no-progress --pure-lockfile --non-interactive --no-bin-links --mutex file:/tmp/plz_yarn.lock'
+    if flat:
+        cmd += ' --flat'
+    if patches:
+        srcs['patches'] = patches
+        cmd += ' && for PATCH in $SRCS_PATCHES; do patch -p1 -d %s < $PATCH; done' % name
+
+    return build_rule(
+        name = name,
+        srcs = srcs,
+        cmd = cmd,
+        outs = [name],
+        labels = ['yarn:%s@%s' % (name, version)],
+        requires = ['js'],
+        hashes = hashes,
+        visibility = visibility,
+        tools = [CONFIG.get('YARN_TOOL', 'yarn')],
+        test_only = test_only,
+        deps = deps,
+    )
+
+
+def _generate_yarn_deps_rule(parent_name, flat, package_json, lock_file):
+    """Returns a post-build function to create new yarn_library rules."""
+
+    def _generate_yarn_deps(rule_name, output):
+        """Post-build rule to create new yarn_library rules for all the deps of another rule.
+
+        Parsing the CLI output is not ideal; at some point we might add a proper JSON parser.
+        Also not sure that we are robustly handling multiple versions here.
+        """
+        # TODO(peterebden): promote _parent_rule to an official builtin? it seems useful...
+        parent_name = _parent_rule(rule_name)
+
+        deps = {}  # Map of package name -> list of dependencies
+        versions = []
+        for line in output:
+            if line.startswith('├') or line.startswith('└'):
+                # New parent dependency.
+                name, version = _parse_package(line)
+                current_deps = []
+                deps[name] = current_deps
+                versions.append((name, version))
+            elif line.startswith('│'):
+                # Sub-dependency.
+                name, version = _parse_package(line)
+                current_deps.append(':' + name)
+        for name, version in versions:
+            if name == parent_name:
+                # Rule already exists for this guy, attach the new dependencies but nothing else.
+                for dep in deps.get(name, []):
+                    add_dep(name, dep)
+                continue
+            try:
+                new_rule = _yarn_library(
+                    name = name,
+                    version = version,
+                    flat = flat,
+                    package_json = package_json,
+                    lock_file = lock_file,
+                    deps = deps.get(name),
+                )
+                add_dep(parent_name, new_rule)
+            except DuplicateTargetError:
+                # Assume that multiple things are trying to install the same target at once, and
+                # it doesn't matter if we create it or someone else does, as long as it's there.
+                # This is not quite true in the face of differing versions for a package - we may
+                # be better insisting on flat installs.
+                pass
+
+    return _generate_yarn_deps
+
+
+def _parse_package(line):
+    """Parses a package name & version out of a line."""
+    _, _, package = line.partition('─ ')
+    name, _, version = package.partition('@')
+    return name, version
