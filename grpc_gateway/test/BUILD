@@ -4,6 +4,9 @@ subinclude('//grpc_gateway')
 grpc_gateway_library(
     name = 'kitten',
     srcs = ['kitten.proto'],
+    # Only generate Go bindings so we don't have to have the other language plugins
+    # installed on CI servers.
+    languages = ['go'],
 )
 
 grpc_swagger_library(
