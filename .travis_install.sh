@@ -16,6 +16,9 @@ goroot = $GOROOT
 cctool = g++-4.8
 defaultoptcflags = --std=c++11 -O2 -DNDEBUG -I $HOME/openfst/include -L $HOME/openfst/lib -I $HOME/thrax/include -L $HOME/thrax/lib -Wl,-rpath $HOME/openfst/lib -Wl,-rpath $HOME/thrax/lib
 
+[proto]
+protoctool = ${HOME}/protoc
+
 [cache]
 dir = $HOME/plz-cache
 
@@ -33,4 +36,23 @@ if [ ! -f "$HOME/thrax/bin/thraxcompiler" ]; then
     curl -fsSL https://get.please.build/ci/thrax-1.2.2_linux_amd64.tar.gz | tar -xzC $HOME
 else
     echo 'Using cached thrax'
+fi
+
+if [ ! -f "$HOME/protoc" ]; then
+    rm -rf "$HOME/protoc"
+    echo 'Downloading protobuf...'
+    curl -fsSLO https://github.com/google/protobuf/releases/download/v3.0.0/protoc-3.0.0-linux-x86_64.zip
+    unzip protoc-3.0.0-linux-x86_64.zip bin/protoc
+    mv bin/protoc "$HOME/protoc"
+else
+    echo 'Using cached protobuf.';
+fi
+
+if [ ! -f "$HOME/grpc_cpp_plugin" ]; then
+    rm -rf "$HOME/grpc_cpp_plugin"
+    echo 'Downloading grpc_cpp_plugin...'
+    curl -fsSLo "$HOME/grpc_cpp_plugin" https://get.please.build/third_party/binary/grpc_cpp_plugin-1.1.1
+    chmod +x "$HOME/grpc_cpp_plugin"
+else
+    echo 'Using cached grpc_cpp_plugin.';
 fi

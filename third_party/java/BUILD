@@ -1,7 +1,25 @@
+package(default_visibility = ['PUBLIC'])
+
+maven_jar(
+    name = 'protoc-gen-grpc-java',
+    id = 'io.grpc:protoc-gen-grpc-java:1.1.2',
+    binary = True,
+)
+
+maven_jar(
+    name = 'protobuf',
+    id = 'com.google.protobuf:protobuf-java:3.2.0',
+)
+
+maven_jars(
+    name = 'grpc-all',
+    id = 'io.grpc:grpc-all:1.1.2',
+    deps = [':protobuf'],
+)
+
 maven_jars(
     name = 'error_prone',
     id = 'com.google.errorprone:error_prone_core:2.0.14',
-    visibility = ['PUBLIC'],
 )
 
 # For the Error Prone compiler we reuse most of the existing worker infrastructure.
@@ -18,5 +36,4 @@ genrule(
     srcs = [':plz'],
     outs = ['javac_worker.jar'],
     cmd = 'tar -xzf $SRCS please/javac_worker && mv please/javac_worker $OUT',
-    visibility = ['PUBLIC'],
 )

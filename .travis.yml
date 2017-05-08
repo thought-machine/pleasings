@@ -34,3 +34,4 @@ cache:
     - $HOME/.please
     - $HOME/openfst
     - $HOME/thrax
+    - $HOME/protoc
