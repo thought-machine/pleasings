@@ -26,3 +26,13 @@ yarn_library(
     name = 'webpack-closure-compiler',
     version = '2.1.4',
 )
+
+yarn_library(
+    name = 'react',
+    version = '15.5.4',
+)
+
+yarn_library(
+    name = 'react-dom',
+    version = '15.5.4',
+)
