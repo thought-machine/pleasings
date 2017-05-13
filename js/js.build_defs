@@ -1,0 +1,2 @@
+def js_library(name, srcs, visibility=None, deps=None):
+    """Defines a Javascript library rule."""
