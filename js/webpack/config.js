@@ -4,7 +4,7 @@ const webpack = require('webpack');
 const ClosureCompilerPlugin = require('webpack-closure-compiler');
 
 module.exports = {
-    entry: process.env.SRCS.split(' '),
+    entry: process.env.SRCS.split(' ').map(src => './' + src),
     output: {
 	path: path.dirname(process.env.OUT),
         filename: path.basename(process.env.OUT),
@@ -13,6 +13,12 @@ module.exports = {
 	rules: [
 	    {test: /\.(js|jsx)$/, use: 'babel-loader'}
 	]
+    },
+    resolve: {
+	modules: process.env.NODE_PATH.split(':'),
+    },
+    resolveLoader: {
+	modules: process.env.NODE_PATH.split(':'),
     },
     plugins: [
         new ClosureCompilerPlugin({

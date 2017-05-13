@@ -13,6 +13,11 @@ yarn_library(
 )
 
 yarn_library(
+    name = 'babel-loader',
+    version = '7.0.0',
+)
+
+yarn_library(
     name = 'jest',
     version = '20.0.0',
 )
