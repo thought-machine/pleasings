@@ -1,2 +1,56 @@
-def js_library(name, srcs, visibility=None, deps=None):
-    """Defines a Javascript library rule."""
+def js_library(name, srcs, test_only=False, visibility=None, deps=None):
+    """Defines a Javascript library rule.
+
+    For now this is just a placeholder.
+
+    Args:
+      name (str): Name of the rule.
+      srcs (str): Source .js files.
+      test_only (bool): If True, can only be depended on by test rules.
+      visibility (list): Visibility specification.
+      deps (list): Any dependencies.
+    """
+    return filegroup(
+        name = name,
+        srcs = srcs,
+        test_only = test_only,
+        visibility = visibility,
+        deps = deps,
+    )
+
+
+def js_binary(name, srcs, out=None, visibility=None, deps=None):
+    """Defines a Javascript binary rule.
+
+    This uses Webpack to collect all the dependencies and pack them into
+    a single output.
+
+    Many TODOs remain:
+      - plugins
+      - vendor bundles
+      - incrementality
+      - persistent workers
+      - hot reloading?
+      - etc...
+
+    Args:
+      name (str): Name of the rule.
+      srcs (list): Source .js files. These are all treated as entry points.
+      out (str): Name of the output file. Defaults to `name.js`.
+      visibility (list): Visibility specification.
+      deps (list): Any dependencies.
+    """
+    node_tool = CONFIG.get('NODE_TOOL', 'node')
+    webpack_tool = CONFIG.get('WEBPACK_TOOL', '//third_party/js:webpack')
+    if 'WEBPACK_CONFIG' not in CONFIG:
+        raise ParseError('You must set webpack-config to a build rule containing your '
+                         'webpack config file in the [buildconfig] section of your .plzconfig.')
+    return build_rule(
+        name = name,
+        srcs = srcs,
+        outs = [out or name + '.js'],
+        cmd = '$TOOL1 $TOOL2 --config $TOOL3',
+        tools = [node_tool, webpack_tool, CONFIG.WEBPACK_CONFIG],
+        visibility = visibility,
+        deps = deps,
+    )
