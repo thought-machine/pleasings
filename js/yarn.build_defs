@@ -60,6 +60,7 @@ def yarn_library(name, version, outs=None, package_json='package.json', lock_fil
         visibility = visibility,
         test_only = test_only,
         deps = deps,
+        output_is_complete = False,
     )
 
 

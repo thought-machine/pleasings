@@ -88,7 +88,7 @@ def _webpack_rule(name, srcs, bundles=None, out=None, manifest=None, visibility=
     # Because we identify specific outs from the bundle rules, they have to be actual rules and
     # can't just be source files. Detect here because the errors can be a bit obtuse later.
     bundles = bundles or []
-    if any(bundle for bundle in bundles if not bundle.startswith(':') or not bundle.startswith('/')):
+    if any(bundle for bundle in bundles if not bundle.startswith(':') and not bundle.startswith('/')):
         raise ParseError('bundles argument must be a js_bundle rule or something similar')
 
     return build_rule(
@@ -107,4 +107,6 @@ def _webpack_rule(name, srcs, bundles=None, out=None, manifest=None, visibility=
         requires = ['js'],
         visibility = visibility,
         deps = deps,
+        needs_transitive_deps = True,
+        output_is_complete = True,
     )
