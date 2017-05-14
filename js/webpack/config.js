@@ -10,9 +10,17 @@ module.exports = {
         filename: path.basename(process.env.OUT),
     },
     module: {
-	rules: [
-	    {test: /\.(js|jsx)$/, use: 'babel-loader'}
-	]
+	rules: [{
+	    test: /\.(js|jsx)$/,
+      loader: 'babel-loader',
+      query: {
+        presets: [
+          'es2015',
+          'react'
+        ],
+        plugins: []
+      },
+	}]
     },
     resolve: {
 	modules: process.env.NODE_PATH.split(':'),

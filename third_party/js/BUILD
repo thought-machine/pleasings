@@ -18,6 +18,16 @@ yarn_library(
 )
 
 yarn_library(
+    name = 'babel-preset-es2015',
+    version = '6.24.1',
+)
+
+yarn_library(
+    name = 'babel-preset-react',
+    version = '6.24.1',
+)
+
+yarn_library(
     name = 'jest',
     version = '20.0.0',
 )
