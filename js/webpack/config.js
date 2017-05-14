@@ -7,10 +7,44 @@ const ClosureCompilerPlugin = require('webpack-closure-compiler');
 const buildConfig = process.env.BUILD_CONFIG;
 const nodeEnv = buildConfig === 'opt' ? 'production' : 'development';
 
+const plugins = [
+    new webpack.DefinePlugin({
+	'process.env': {
+	    NODE_ENV: JSON.stringify(nodeEnv)
+	}
+    }),
+    new ClosureCompilerPlugin({
+        compiler: {
+            language_in: 'ECMASCRIPT6',
+            language_out: 'ECMASCRIPT5',
+        },
+        concurrency: 3,
+    })
+]
+
+let entry = process.env.SRCS_JS.split(' ').map(src => './' + src);
+if (process.env.OUTS_MANIFEST) {
+    // We are building a vendor bundle,
+    const name = path.basename(process.env.OUTS_JS);
+    entry = {[name]: process.env.SRCS_JS.split(' ')};
+    plugins.push(new webpack.DllPlugin({
+        name: name,
+        path: path.join(process.env.TMP_DIR, process.env.OUTS_MANIFEST)
+    }));
+} else if (process.env.SRCS_DLL) {
+    // We have some vendor DLLs to link to.
+    const dlls = process.env.SRCS_DLL.split(' ');
+    const manifests = process.env.SRCS_MANIFEST.split(' ');
+    plugins = plugins.concat(dlls.map((dll, i) => new webpack.DllReferencePlugin({
+	name: path.basename(dll),
+	path: manifests[i],
+    })));
+}
+
 module.exports = {
-    entry: process.env.SRCS.split(' ').map(src => './' + src),
+    entry: entry,
     output: {
-	path: path.dirname(process.env.OUT),
+	path: process.env.TMP_DIR,
         filename: path.basename(process.env.OUT),
     },
     module: {
@@ -32,18 +66,5 @@ module.exports = {
     resolveLoader: {
 	modules: process.env.NODE_PATH.split(':'),
     },
-    plugins: [
-	new webpack.DefinePlugin({
-	    'process.env': {
-		NODE_ENV: JSON.stringify(nodeEnv)
-	    }
-	}),
-        new ClosureCompilerPlugin({
-          compiler: {
-            language_in: 'ECMASCRIPT6',
-            language_out: 'ECMASCRIPT5',
-          },
-          concurrency: 3,
-        })
-    ]
+    plugins: plugins,
 };

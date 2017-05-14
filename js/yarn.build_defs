@@ -92,7 +92,7 @@ def yarn_install(name, package_json='package.json', lock_file='yarn.lock',
         tools = [CONFIG.get('YARN_TOOL', 'yarn')],
         # Post-build function is needed to detect all the outputs; since they are defined
         # by the package.json / yarn.lock combination, we can't possibly know them at parse time.
-        post_build = lambda name, output: [add_out(name, line) for line in output],
+        post_build = lambda name, output: [add_out(name, line, line) for line in output],
         test_only = test_only,
         deps = deps,
     )
