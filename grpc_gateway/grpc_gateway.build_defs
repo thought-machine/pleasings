@@ -137,10 +137,10 @@ def _grpc_gateway_def():
     # Copy & modify the existing Go definition so we don't have to reinvent wheels.
     d = grpc_languages().get('go').copy()
     d.update({
-        'extensions': ['.pb.go', '.pb.gw.go'],
+        'extensions': {'go': ['.pb.go', '.pb.gw.go']},
         'protoc_flags': [
-            '--plugin=protoc-gen-go=$TOOL2',
-            '--plugin=protoc-gen-grpc-gateway=$TOOL3',
+            '--plugin=protoc-gen-go=$(location %s)' % CONFIG.PROTOC_GO_PLUGIN,
+            '--plugin=protoc-gen-grpc-gateway=$(location %s)' % CONFIG.GRPC_GATEWAY_PLUGIN,
             '--grpc-gateway_out=logtostderr=true:$TMP_DIR',
         ],
         'tools': [CONFIG.PROTOC_GO_PLUGIN, CONFIG.GRPC_GATEWAY_PLUGIN],
@@ -160,6 +160,6 @@ def _swagger_def():
             test_only = test_only,
             requires = ['swagger'],
         ),
-        protoc_flags = ['--plugin=protoc-gen-swagger=$TOOL2'],
+        protoc_flags = ['--plugin=protoc-gen-swagger=$(location %s)' % CONFIG.GRPC_SWAGGER_PLUGIN],
         tools = [CONFIG.GRPC_SWAGGER_PLUGIN],
     )
