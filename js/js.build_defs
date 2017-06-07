@@ -1,0 +1,112 @@
+def js_library(name, srcs, test_only=False, visibility=None, deps=None):
+    """Defines a Javascript library rule.
+
+    For now this is just a placeholder.
+
+    Args:
+      name (str): Name of the rule.
+      srcs (str): Source .js files.
+      test_only (bool): If True, can only be depended on by test rules.
+      visibility (list): Visibility specification.
+      deps (list): Any dependencies.
+    """
+    return filegroup(
+        name = name,
+        srcs = srcs,
+        test_only = test_only,
+        requires = ['js'],
+        visibility = visibility,
+        deps = deps,
+    )
+
+
+def js_binary(name, srcs, out=None, bundles=None, visibility=None, deps=None):
+    """Defines a Javascript binary rule.
+
+    This uses Webpack to collect all the dependencies and pack them into
+    a single output.
+
+    Many TODOs remain:
+      - plugins
+      - incrementality
+      - persistent workers
+      - hot reloading?
+      - etc...
+
+    Args:
+      name (str): Name of the rule.
+      srcs (list): Source .js files. These are all treated as entry points.
+      out (str): Name of the output file. Defaults to `name.js`.
+      bundles (list): List of vendor bundles (typically `js_bundle` rules).
+      visibility (list): Visibility specification.
+      deps (list): Any dependencies.
+    """
+    return _webpack_rule(
+        name = name,
+        srcs = srcs,
+        out = out,
+        bundles = bundles,
+        visibility = visibility,
+        deps = deps,
+    )
+
+
+def js_bundle(name, srcs, out=None, visibility=None, deps=None):
+    """Defines a Javascript rule that uses Webpack to build a dll / vendor bundle.
+
+    This can be referenced by other Javascript rules using the bundles argument; they
+    can't be passed directly in srcs since they're treated differently.
+
+    Args:
+      name (str): Name of the rule.
+      srcs (list): Source .js files. These are all treated as entry points.
+      out (str): Name of the output file. Defaults to `name.js`.
+                 Note that a corresponding out-manifest.json will be created as well.
+      visibility (list): Visibility specification.
+      deps (list): Any dependencies.
+    """
+    out = out or name + '.js'
+    manifest = (out[:-3] if out.endswith('.js') else out) + '-manifest.json'
+    return _webpack_rule(
+        name = name,
+        srcs = srcs,
+        out = out,
+        manifest = manifest,
+        visibility = visibility,
+        deps = deps,
+    )
+
+
+def _webpack_rule(name, srcs, bundles=None, out=None, manifest=None, visibility=None, deps=None):
+    """Internal function for the various webpack-calling rules above."""
+    node_tool = CONFIG.get('NODE_TOOL', 'node')
+    webpack_tool = CONFIG.get('WEBPACK_TOOL', '//third_party/js:webpack')
+    if 'WEBPACK_CONFIG' not in CONFIG:
+        raise ParseError('You must set webpack-config to a build rule containing your '
+                         'webpack config file in the [buildconfig] section of your .plzconfig.')
+
+    # Because we identify specific outs from the bundle rules, they have to be actual rules and
+    # can't just be source files. Detect here because the errors can be a bit obtuse later.
+    bundles = bundles or []
+    if any(bundle for bundle in bundles if not bundle.startswith(':') and not bundle.startswith('/')):
+        raise ParseError('bundles argument must be a js_bundle rule or something similar')
+
+    return build_rule(
+        name = name,
+        srcs = {
+            'js': srcs,
+            'dll': [bundle + '|js' for bundle in bundles],
+            'manifest': [bundle + '|manifest' for bundle in bundles],
+        },
+        outs = {
+            'js': [out or name + '.js'],
+            'manifest': [manifest],
+        },
+        cmd = 'export NODE_PATH=$TMP_DIR:$(dirname $TOOL2); $TOOL1 $TOOL2/bin/webpack.js --config $TOOL3',
+        tools = [node_tool, webpack_tool, CONFIG.WEBPACK_CONFIG],
+        requires = ['js'],
+        visibility = visibility,
+        deps = deps,
+        needs_transitive_deps = True,
+        output_is_complete = True,
+    )
