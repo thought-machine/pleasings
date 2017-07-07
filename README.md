@@ -1,4 +1,4 @@
-# Pleasings [![Build Status](https://travis-ci.org/thought-machine/pleasings.svg?branch=master)](https://travis-ci.org/thought-machine/pleasings)
+# Pleasings [![Build Status](https://circleci.com/gh/thought-machine/pleasings.svg?style=shield)](https://circleci.com/gh/thought-machine/pleasings)
 Addons &amp; new build rules for [Please](https://github.com/thought-machine/please)
 
 Most of these are either still experimental or sufficiently esoteric that we prefer not to make them
@@ -11,3 +11,9 @@ Currently contains the following:
  * Grm: Rules for building [Thrax](http://www.openfst.org/twiki/bin/view/GRM/Thrax) grammars.
    You'll need to have OpenFST and Thrax installed for these.
  * Rust: A very basic set of rules for building Rust code. Hasn't gone much beyond "hello world" yet.
+ * gRPC Gateway: Extensions to the builtin proto rules to generate a REST proxy using
+   [grpc-gateway](https://github.com/grpc-ecosystem/grpc-gateway)
+ * Java: An extended compiler worker that integrates
+   [error-prone](https://github.com/google/error-prone) for additional compile-time diagnostics.
+ * Javascript: A set of rules integrating Yarn dependencies and a Webpack-based build into Please.
+   Still somewhat incomplete.
