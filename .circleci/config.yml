@@ -8,9 +8,9 @@ jobs:
        - checkout
        - run:
            name: Build
-           command: plz build
+           command: ./pleasew build
        - run:
            name: Test
-           command: plz test
+           command: ./pleasew test
        - store_test_results:
            path: plz-out/log/test_results.xml
