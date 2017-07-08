@@ -14,9 +14,8 @@ RUN curl -sSf http://openfst.cs.nyu.edu/twiki/pub/GRM/ThraxDownload/thrax-1.2.3.
     ./configure --prefix=/usr --enable-static --enable-shared && \
     make -j4 && \
     make install && \
-    rm -rf /tmp/thrax-1.2.3
-# Some of Thrax's files are owned by root:staff which seems to upset CircleCI quite a lot.
-RUN chown -R root:root /usr/local/share /usr/local/bin
+    rm -rf /tmp/thrax-1.2.3 && \
+    chown -R root:root /usr/local/share /usr/local/bin
 
 # Rust
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
