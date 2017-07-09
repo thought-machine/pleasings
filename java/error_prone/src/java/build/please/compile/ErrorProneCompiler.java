@@ -1,10 +1,10 @@
-package net.thoughtmachine.build;
+package build.please.compile;
 
 import build.please.compile.JavaCompiler;
 import build.please.worker.WorkerProto.BuildRequest;
 import com.google.errorprone.ErrorProneJavaCompiler;
 
-public class ErrorProneCompiler extends build.please.compile.JavaCompiler {
+public class ErrorProneCompiler extends JavaCompiler {
 
     @Override
     public javax.tools.JavaCompiler newCompiler(BuildRequest request) {

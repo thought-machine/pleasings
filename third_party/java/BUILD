@@ -11,15 +11,25 @@ maven_jar(
     id = 'com.google.protobuf:protobuf-java:3.2.0',
 )
 
+maven_jar(
+    name = 'guava',
+    id = 'com.google.guava:guava:22.0',
+)
+
 maven_jars(
     name = 'grpc-all',
     id = 'io.grpc:grpc-all:1.1.2',
-    deps = [':protobuf'],
+    exclude = ['guava'],
+    deps = [
+        ':guava',
+        ':protobuf',
+    ],
 )
 
 maven_jars(
     name = 'error_prone',
     id = 'com.google.errorprone:error_prone_core:2.0.14',
+    exclude = ['guava'],
 )
 
 # For the Error Prone compiler we reuse most of the existing worker infrastructure.

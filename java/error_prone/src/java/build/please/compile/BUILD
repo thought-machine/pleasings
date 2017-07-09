@@ -2,7 +2,7 @@
 package(javac_tool = 'javac')
 
 java_library(
-    name = 'build',
+    name = 'compile',
     srcs = ['ErrorProneCompiler.java'],
     deps = [
         '//third_party/java:error_prone',
