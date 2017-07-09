@@ -5,8 +5,8 @@ java_library(
     name = 'compile',
     srcs = ['ErrorProneCompiler.java'],
     deps = [
-        '//third_party/java:error_prone',
-        '//third_party/java:plz_javac_worker',
+        '//third_party/java/error_prone',
+        '//third_party/java/error_prone:plz_javac_worker',
     ],
     visibility = ['//java/error_prone/...'],
 )
