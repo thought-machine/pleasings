@@ -9,13 +9,15 @@ RUN curl -sSf http://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.6.3.tar
     make -j4 && \
     make install && \
     rm -rf /tmp/openfst-1.6.3
+# Note that Thrax installs some things for root:staff, which fails on CircleCI, so we chown
+# them back to root:root again.
 RUN curl -sSf http://openfst.cs.nyu.edu/twiki/pub/GRM/ThraxDownload/thrax-1.2.3.tar.gz | tar -xz && \
     cd thrax-1.2.3 && \
     ./configure --prefix=/usr --enable-static --enable-shared && \
     make -j4 && \
     make install && \
     rm -rf /tmp/thrax-1.2.3 && \
-    chown -R root:root /usr/local/share /usr/local/bin
+    chown -R root:root /usr/share /usr/bin
 
 # Rust
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
