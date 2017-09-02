@@ -19,10 +19,6 @@ RUN curl -sSf http://openfst.cs.nyu.edu/twiki/pub/GRM/ThraxDownload/thrax-1.2.3.
     rm -rf /tmp/thrax-1.2.3 && \
     chown -R root:root /usr/share /usr/bin
 
-# Rust
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
-ENV PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:~/.cargo/bin
-
 # Node (for js / yarn)
 RUN curl -sSL https://deb.nodesource.com/setup_6.x | bash -
 RUN apt-get install -y nodejs
