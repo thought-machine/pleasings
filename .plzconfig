@@ -11,6 +11,7 @@ grpc-gateway-go-dep = //third_party/go:grpc-gateway-runtime
 grpc-swagger-plugin = //third_party/go:protoc-gen-swagger
 webpack-config = //js/webpack:webpack_config
 yarn-tool = //third_party/js:yarn
+rust-toolchain = //third_party/rust:toolchain
 
 [proto]
 protocgoplugin = //third_party/go:protoc-gen-go

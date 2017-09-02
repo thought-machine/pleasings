@@ -1,0 +1,66 @@
+def signed_remote_file(name, url, sig_url=None, key=None, hashes=None, out=None, binary=False,
+                       visibility=None, licences=None, test_only=False, deps=None):
+    """Extension of builtin remote_file rule to perform signature verification with GPG.
+
+    Args:
+      name (str): Name of the rule
+      url (str): URL to fetch
+      sig_url (str): URL of signature file. Defaults to url + .asc.
+      key (str): Key to verify signature with. Can either be a URL, in which case it is
+                 automatically downloaded, or a rule or source file which is used directly.
+                 Currently only ASCII-armored format is supported.
+      hashes (list): List of hashes; the output must match at least one of these.
+                     Note that this applies to the file itself, not the signature.
+      out (str): Output name of the file. Chosen automatically if not given.
+      binary (bool): True to mark the output as binary and runnable.
+      visibility (list): Visibility declaration of the rule.
+      licences (list): List of licences that apply to this rule.
+      test_only (bool): If true the rule is only visible to test targets.
+      deps (list): List of extra dependencies for this rule.
+    """
+    file_rule = remote_file(
+        name = '_%s#file' % name,
+        url = url,
+        hashes = hashes,
+        out = out,
+        binary = binary,
+        licences = licences,
+        test_only = test_only,
+        deps = deps,
+    )
+
+    sig_url = sig_url or url + '.asc'
+    sig_rule = remote_file(
+        name = '_%s#sig' % name,
+        url = sig_url,
+        test_only = test_only,
+        deps = deps,
+    )
+
+    if key.startswith('http://') or key.startswith('https://'):
+        key = remote_file(
+            name = '_%s#key' % name,
+            url = key,
+            test_only = test_only,
+            deps = deps,
+        )
+
+    verify_rule = build_rule(
+        name = name,
+        tag = 'verify',
+        srcs = {
+            'file': [file_rule],
+            'sig': [sig_rule],
+            'key': [key],
+        },
+        cmd = 'gpg --dearmor $SRCS_KEY && gpg --no-default-keyring --keyring ${SRCS_KEY}.gpg --verify $SRCS_SIG $SRCS_FILE',
+        test_only = test_only,
+    )
+
+    return filegroup(
+        name = name,
+        srcs = [file_rule],
+        deps = [verify_rule],
+        test_only = test_only,
+        visibility = visibility,
+    )

@@ -1,8 +1,16 @@
 """Build rules for compiling Rust code in Please.
 
-These have been tested with Rust v1.8.0; they may work with
-older versions but we don't know specifically which ones.
+These should be reasonably agnostic to Rust version; we've only tested
+with a handful though so it's hard to say for sure.
+
+The typical model is to use rust_toolchain to fetch a Rust version
+and set that in .plzconfig for other rules to use. The //rust/test
+and //third_party/rust directories in this repo contain examples of
+how one might go about doing that.
 """
+# N.B. This works within the pleasings repo but not outside.
+#      Once committed we may change this to a URL.
+subinclude('//remote')
 
 
 def rust_library(name, srcs, deps=None, visibility=None):
@@ -14,14 +22,16 @@ def rust_library(name, srcs, deps=None, visibility=None):
       deps: Dependencies of this rule needed for it to compile.
       visibility: Visibility declaration.
     """
+    cmd, tools = _rustc_cmds(deps, crate_type='lib')
     build_rule(
         name = name,
         srcs = srcs,
         outs = ['lib%s.rlib' % name],
-        cmd = _rustc_cmds(deps, crate_type='lib'),
+        cmd = cmd,
         deps = deps,
         visibility = visibility,
         requires = ['rust'],
+        tools = tools,
     )
 
 
@@ -34,15 +44,17 @@ def rust_binary(name, main, deps=None, visibility=None):
       deps: Dependencies of this rule needed for it to compile.
       visibility: Visibility declaration.
     """
+    cmd, tools = _rustc_cmds(deps)
     build_rule(
         name = name,
         srcs = [main],
         binary = True,
         outs = [name],
-        cmd = _rustc_cmds(deps),
+        cmd = cmd,
         deps = deps,
         visibility = visibility,
         requires = ['rust'],
+        tools = tools,
     )
 
 
@@ -62,37 +74,126 @@ def rust_test(name, srcs, deps=None, visibility=None):
       deps: Dependencies of this rule needed for it to compile.
       visibility: Visibility declaration.
     """
+    cmd, tools = _rustc_cmds(deps, test=True)
     build_rule(
         name = name,
         srcs = srcs,
         binary = True,
         test = True,
         outs = [name],
-        cmd = _rustc_cmds(deps, test=True),
-        test_cmd = '$(exe :%s)' % name,
+        cmd = cmd,
         deps = deps,
         visibility = visibility,
         requires = ['rust'],
         no_test_output = True,  # see above
+        tools = tools,
     )
 
 
 def _rustc_cmds(deps=None, crate_type=None, test=False):
-    cmd = [CONFIG.RUSTC_TOOL, '$SRCS', '-o', '$OUT']
+    """Returns the commands to pass to rustc, and tools to use for it."""
+    cmd = ['$TOOLS_RUSTC', '$SRCS', '-o', '$OUT']
     if crate_type:
         cmd.append('--crate-type=' + crate_type)
     if test:
         cmd.append('--test')
+    if CONFIG.RUST_STDLIB or CONFIG.RUST_TOOLCHAIN:
+        cmd.append('-L $TOOLS_STDLIB -L $TOOLS_STDLIB/../../..')
     if deps:
         cmd.extend('-L $(dir %s)' % dep for dep in deps)
     cmd = ' '.join(cmd)
     return {
         'dbg': cmd + ' -g',
         'opt': cmd + ' -O',
+    }, {
+        'rustc': [(CONFIG.RUST_TOOLCHAIN + '_rustc') if CONFIG.RUST_TOOLCHAIN else CONFIG.RUSTC_TOOL],
+        'stdlib': [(CONFIG.RUST_TOOLCHAIN + '_stdlib') if CONFIG.RUST_TOOLCHAIN else CONFIG.RUST_STDLIB],
     }
 
 
-# Add rustc to the config so people can override with package().
-# In future it would be nice to be able to configure this kind of thing in plzconfig
-# but it's currently not possible to add arbitrary sections to it.
+def rust_toolchain(name, version, os=None, arch=None, hashes=None, deps=None, visibility=None):
+    """Defines rules to fetch a Rust toolchain.
+
+    Typically you'd set the name of this rule into rustc_toolchain, either in your .plzconfig
+    or using package(). rustc and the stdlib will then be automatically derived from it.
+
+    Args:
+      name (str): Name of the rule.
+      version (str): Version of Rust to download.
+      os (str): Operating system to download for, as the full triple, e.g. 'unknown-linux-gnu', 'pc-windows-msvc', etc.
+                Defaults to the current OS, as best we can.
+      arch (str): Architecture to download for, e.g. 'i686' or 'x86_64'. Defaults to the current one.
+      hashes (list) List of hashes to verify on download.
+      deps (list): Extra dependencies of the rule.
+      visibility (list): Visibility declaration of the rule.
+    """
+    if not os:
+        if CONFIG.OS == 'linux':
+            os = 'unknown-linux-gnu'
+        elif CONFIG.OS == 'darwin':
+            os = 'apple-darwin'
+        else:
+            raise ParseError('Unknown OS %s, you must pass os explicitly to rust_toolchain' % CONFIG.OS)
+    if not arch:
+        if CONFIG.ARCH == 'amd64':
+            arch = 'x86_64'
+        elif CONFIG.ARCH == 'x86':
+            arch = 'i686'
+        else:
+            raise ParseError('Unknown architecture %s, you must pass arch explicitly to rust_toolchain' % CONFIG.ARCH)
+
+    base = '-'.join(['rust', version, arch, os])
+    download_rule = signed_remote_file(
+        name = '_%s#download' % name,
+        url = 'https://static.rust-lang.org/dist/%s.tar.gz' % base,
+        key = 'https://static.rust-lang.org/rust-key.gpg.ascii',
+        hashes = hashes,
+        deps = deps,
+    )
+    extract_rule = build_rule(
+        name = name,
+        tag = 'extract',
+        srcs = [download_rule],
+        outs = {
+            'rustc_bin': [base + '/rustc/bin/rustc'],
+            'rustc_lib': [base + '/rustc/lib'],
+            'cargo_bin': [base + '/cargo/bin/cargo'],
+            'stdlib': ['%s/rust-std-%s-%s/lib/rustlib/%s-%s/lib' % (base, arch, os, arch, os)],
+        },
+        cmd = 'tar -xzf $SRCS',
+        building_description = 'Extracting...',
+    )
+    # This is something of a hack; the libraries need to stay in place next to the binary, which
+    # must itself be binary so it's executable.
+    # Another option might be to rewrite its rpath, or clever use of LD_LIBRARY_PATH, but this
+    # seems easiest for now.
+    lib_rule = filegroup(
+        name = name,
+        tag = 'lib',
+        srcs = [extract_rule + '|rustc_lib'],
+        binary = True,
+    )
+    filegroup(
+        name = name + '_rustc',
+        srcs = [extract_rule + '|rustc_bin'],
+        visibility = visibility,
+        binary = True,
+        deps = [lib_rule],
+    )
+    filegroup(
+        name = name + '_stdlib',
+        srcs = [extract_rule + '|stdlib'],
+        visibility = visibility,
+    )
+    filegroup(
+        name = name + '_cargo',
+        srcs = [extract_rule + '|cargo_bin'],
+        visibility = visibility,
+    )
+
+
+# Setting these allows anyone who's subincluded this file to use package() to override RUSTC_TOOL.
+# It's also a useful default if it's already installed and on their PATH.
 CONFIG.setdefault('RUSTC_TOOL', 'rustc')
+CONFIG.setdefault('RUST_STDLIB', None)
+CONFIG.setdefault('RUST_TOOLCHAIN', None)
