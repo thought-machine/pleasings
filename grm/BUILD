@@ -10,5 +10,5 @@ export_file(
 cc_binary(
     name = 'test_main',
     srcs = ['grm_test_main.cc'],
-    linker_flags = ['-lthrax -lfst -ldl'],
+    linker_flags = ['-lthrax -lfstfar -lfst -ldl'],
 )
