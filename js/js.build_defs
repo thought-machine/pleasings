@@ -79,9 +79,7 @@ def js_bundle(name, srcs, out=None, visibility=None, deps=None):
 
 def _webpack_rule(name, srcs, bundles=None, out=None, manifest=None, visibility=None, deps=None):
     """Internal function for the various webpack-calling rules above."""
-    node_tool = CONFIG.get('NODE_TOOL', 'node')
-    webpack_tool = CONFIG.get('WEBPACK_TOOL', '//third_party/js:webpack')
-    if 'WEBPACK_CONFIG' not in CONFIG:
+    if not CONFIG.WEBPACK_CONFIG:
         raise ParseError('You must set webpack-config to a build rule containing your '
                          'webpack config file in the [buildconfig] section of your .plzconfig.')
 
@@ -102,11 +100,21 @@ def _webpack_rule(name, srcs, bundles=None, out=None, manifest=None, visibility=
             'js': [out or name + '.js'],
             'manifest': [manifest],
         },
-        cmd = 'export NODE_PATH=$TMP_DIR:$(dirname $TOOL2); $TOOL1 $TOOL2/bin/webpack.js --config $TOOL3',
-        tools = [node_tool, webpack_tool, CONFIG.WEBPACK_CONFIG],
+        cmd = 'export NODE_PATH=$TMP_DIR:$(dirname $TOOLS_WEBPACK); $TOOLS_NODE $TOOLS_WEBPACK/bin/webpack.js --config $TOOLS_CONFIG',
+        tools = {
+            'node': [CONFIG.NODE_TOOL],
+            'webpack': [CONFIG.WEBPACK_TOOL],
+            'config': [CONFIG.WEBPACK_CONFIG],
+        },
         requires = ['js'],
         visibility = visibility,
         deps = deps,
         needs_transitive_deps = True,
         output_is_complete = True,
     )
+
+
+# Set these so others can override them using package()
+CONFIG.setdefault('NODE_TOOL', 'node')
+CONFIG.setdefault('WEBPACK_TOOL', '//third_party/js:webpack')
+CONFIG.setdefault('WEBPACK_CONFIG', '')
