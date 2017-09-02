@@ -21,6 +21,7 @@ go_get(
     name = 'grpc',
     exported_deps = [':context'],
     get = 'google.golang.org/grpc',
+    revision = 'v1.5.0',
     deps = [':protobuf'],
 )
 
