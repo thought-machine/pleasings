@@ -1,3 +1,6 @@
+[please]
+version = >=8.7.2
+
 [build]
 path = /usr/local/bin:/usr/bin:/bin
 ; It's quite likely that anyone using Rust will have it here.
