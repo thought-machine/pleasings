@@ -1,7 +1,13 @@
 # Extra build rules for Go.
 
-export_file(
+filegroup(
     name = 'go_bindata',
-    src = 'go_bindata.build_defs',
+    srcs = ['go_bindata.build_defs'],
+    visibility = ['PUBLIC'],
+)
+
+filegroup(
+    name = 'go_yacc',
+    srcs = ['go_yacc.build_defs'],
     visibility = ['PUBLIC'],
 )
