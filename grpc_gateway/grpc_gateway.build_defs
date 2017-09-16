@@ -2,7 +2,7 @@
 
 See https://github.com/grpc-ecosystem/grpc-gateway for more information.
 """
-
+subinclude('//remote')
 
 
 def grpc_gateway_library(name, srcs, deps=None, visibility=None, languages=None,

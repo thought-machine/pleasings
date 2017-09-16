@@ -14,6 +14,8 @@ each grm_test rule.
 
 For any of this to work you will need to have libfst and thraxcompiler installed.
 """
+subinclude('//remote')
+
 
 def grm_library(name, src, deps=None, data=None, visibility=None, timeout=0):
     """Build rule for compiling a Thrax grammar.
