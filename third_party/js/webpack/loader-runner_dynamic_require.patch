@@ -1,0 +1,10 @@
+--- loader-runner/lib/loadLoader.js	2017-01-25 23:43:16.000000000 +0000
++++ loader-runner/lib/loadLoader.js.new	2017-09-24 13:01:46.477616564 +0100
+@@ -1,6 +1,6 @@
+ module.exports = function loadLoader(loader, callback) {
+ 	if(typeof System === "object" && typeof System.import === "function") {
+-		System.import(loader.path).catch(callback).then(function(module) {
++		require("js/webpack/require_dynamic").dynamicRequire(loader.path).catch(callback).then(function(module) {
+ 			loader.normal = typeof module === "function" ? module : module.default;
+ 			loader.pitch = module.pitch;
+ 			loader.raw = module.raw;

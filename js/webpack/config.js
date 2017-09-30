@@ -1,7 +1,11 @@
+const fs = require('fs');
 const path = require('path');
 const process = require('process');
 const webpack = require('webpack');
-const ClosureCompilerPlugin = require('webpack-closure-compiler');
+const requireDynamic = require('./require_dynamic.js');
+const BabelPresetES2015 = require('babel-preset-es2015');
+const BabelPresetReact = require('babel-preset-react');
+
 
 // Map plz's standard build config names to something meaningful to webpack.
 const buildConfig = process.env.BUILD_CONFIG;
@@ -13,21 +17,13 @@ let plugins = [
 	    NODE_ENV: JSON.stringify(nodeEnv)
 	}
     }),
-    new ClosureCompilerPlugin({
-        compiler: {
-            language_in: 'ECMASCRIPT6',
-            language_out: 'ECMASCRIPT5',
-        },
-        concurrency: 3,
-    })
-]
+];
 
 let entry = process.env.SRCS_JS.split(' ').map(src => './' + src);
 let library = undefined;
 if (process.env.OUTS_MANIFEST) {
     // We are building a vendor bundle,
     const name = path.basename(process.env.OUTS_JS, '.js');
-    entry = {[name]: process.env.SRCS_JS.split(' ')};
     library = name;
     plugins.push(new webpack.DllPlugin({
         name: name,
@@ -39,9 +35,12 @@ if (process.env.OUTS_MANIFEST) {
     const manifests = process.env.SRCS_MANIFEST.split(' ');
     plugins = plugins.concat(dlls.map((dll, i) => new webpack.DllReferencePlugin({
 	name: path.basename(dll, '.js'),
-	manifest: require(manifests[i]),
+	manifest: JSON.parse(fs.readFileSync(manifests[i], 'utf8')),
     })));
 }
+
+// Symlink this guy into place. For some reason it never seems to work to just add to modules.
+fs.symlinkSync(process.env.TOOLS_WEBPACK + '.buildin', process.env.TMP_DIR + '/buildin');
 
 module.exports = {
     entry: entry,
@@ -52,22 +51,36 @@ module.exports = {
     },
     module: {
 	rules: [{
+	    test: /\.json$/,
+	    use: [{ loader: 'json-loader' }],
+	}, {
 	    test: /\.(js|jsx)$/,
-      loader: 'babel-loader',
-      query: {
-        presets: [
-          'es2015',
-          'react'
-        ],
-        plugins: []
-      },
+	    use: [
+		{
+		    loader: 'babel-loader',
+		    options: {
+			babelrc: false,
+			presets: [
+			    BabelPresetES2015,
+			    BabelPresetReact,
+			],
+		    },
+		}
+	    ],
 	}]
     },
-    resolve: {
-	modules: process.env.NODE_PATH.split(':'),
+    node: {
+	process: false,
+	Buffer: false,
     },
     resolveLoader: {
-	modules: process.env.NODE_PATH.split(':'),
+	plugins: [requireDynamic.Resolver],
+    },
+    resolve: {
+	modules: [
+	    process.env.TMP_DIR,
+	    path.join(process.env.TMP_DIR, 'third_party/js'),
+	],
     },
     plugins: plugins,
 };

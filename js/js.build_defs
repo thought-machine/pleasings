@@ -17,6 +17,7 @@ def js_library(name, srcs, test_only=False, visibility=None, deps=None):
         requires = ['js'],
         visibility = visibility,
         deps = deps,
+        output_is_complete = False,
     )
 
 
@@ -51,6 +52,30 @@ def js_binary(name, srcs, out=None, bundles=None, visibility=None, deps=None):
     )
 
 
+def node_binary(name, srcs, out=None, visibility=None, deps=None):
+    """Similar to js_binary but the output is binary and prefixed with a Node shebang.
+
+    TODO(peter): Should we have better support for using this in the same package as
+                 js_binary, since they effectively require different webpack configs?
+
+    Args:
+      name (str): Name of the rule.
+      srcs (list): Source .js files. These are all treated as entry points.
+      out (str): Name of the output file. Defaults to `name.js`.
+      visibility (list): Visibility specification.
+      deps (list): Any dependencies.
+    """
+    return _webpack_rule(
+        name = name,
+        srcs = srcs,
+        out = out,
+        visibility = visibility,
+        deps = deps,
+        binary = True,
+        shebang = '#!/usr/bin/env node',
+    )
+
+
 def js_bundle(name, srcs, out=None, visibility=None, deps=None):
     """Defines a Javascript rule that uses Webpack to build a dll / vendor bundle.
 
@@ -73,21 +98,26 @@ def js_bundle(name, srcs, out=None, visibility=None, deps=None):
         out = out,
         manifest = manifest,
         visibility = visibility,
-        deps = deps,
+        # N.B. This is important; there are subtleties to how deps/srcs are handled.
+        deps = (deps or []) + srcs,
     )
 
 
-def _webpack_rule(name, srcs, bundles=None, out=None, manifest=None, visibility=None, deps=None):
+def _webpack_rule(name, srcs, bundles=None, out=None, manifest=None, binary=False, shebang='',
+                  output_is_complete=True, visibility=None, deps=None, requires=None, provides=None):
     """Internal function for the various webpack-calling rules above."""
-    if not CONFIG.WEBPACK_CONFIG:
-        raise ParseError('You must set webpack-config to a build rule containing your '
-                         'webpack config file in the [buildconfig] section of your .plzconfig.')
 
     # Because we identify specific outs from the bundle rules, they have to be actual rules and
     # can't just be source files. Detect here because the errors can be a bit obtuse later.
     bundles = bundles or []
     if any(bundle for bundle in bundles if not bundle.startswith(':') and not bundle.startswith('/')):
         raise ParseError('bundles argument must be a js_bundle rule or something similar')
+
+    # Must make Webpack's 'buildin' directory available.
+    cmd = '$TOOLS_NODE $TOOLS_WEBPACK'
+    if binary:
+        # TODO(peter): can we handle this inside Webpack somehow rather than this inelegant copy & cat?
+        cmd += ' && mv $OUTS_JS _tmp.js && echo "%s" > $OUTS_JS && cat _tmp.js >> $OUTS_JS' % shebang
 
     return build_rule(
         name = name,
@@ -100,21 +130,101 @@ def _webpack_rule(name, srcs, bundles=None, out=None, manifest=None, visibility=
             'js': [out or name + '.js'],
             'manifest': [manifest],
         },
-        cmd = 'export NODE_PATH=$TMP_DIR:$(dirname $TOOLS_WEBPACK); $TOOLS_NODE $TOOLS_WEBPACK/bin/webpack.js --config $TOOLS_CONFIG',
+        cmd = cmd,
         tools = {
             'node': [CONFIG.NODE_TOOL],
             'webpack': [CONFIG.WEBPACK_TOOL],
-            'config': [CONFIG.WEBPACK_CONFIG],
         },
-        requires = ['js'],
+        requires = requires or ['js'],
+        provides = provides,
         visibility = visibility,
         deps = deps,
+        needs_transitive_deps = True,
+        output_is_complete = output_is_complete,
+        binary = binary,
+    )
+
+
+def webpack_bundle(name, main, config, webpack, srcs=None, build_config=None,
+                   deps=None, visibility=None):
+    """Creates a semi-standalone bundle of webpack.
+
+    Args:
+      name (str): Name of the rule.
+      main (str): Entry point for the binary.
+      config (str): Webpack config file, used to build other things after this.
+      build_config (str): Webpack config file used to build this bundle.
+      webpack (str): Location of downloaded Webpack (typically a yarn_library).
+      srcs (str): Additional source files to use for this bundle. main and config don't
+                  need to be specified here as well.
+      visibility (list): Visibility specification.
+      deps (list): Any dependencies.
+    """
+    # Webpack has a set of 'buildin' scripts that need to be available at build time.
+    buildin_rule = build_rule(
+        name = name,
+        tag = 'buildin',
+        srcs = [webpack],
+        outs = ['webpack.js.buildin/buildin'],
+        cmd = 'mv $SRCS/buildin $OUT',
+    )
+
+    deps = deps or []
+    build_config = build_config or config
+    return build_rule(
+        name = name,
+        deps = [webpack] + deps,  # Must be a dep to get transitive deps right.
+        srcs = {
+            'main': [main],
+            'config': [config],
+            'build': [build_config],
+            'other': srcs,
+        },
+        outs = ['webpack.js'],
+        tools = {'node': [CONFIG.NODE_TOOL], 'buildin': [buildin_rule]},
+        cmd = 'export NODE_PATH=".:$(dir %s)"; $TOOLS_NODE $(location %s)/bin/webpack.js --config $SRCS_BUILD' % (webpack, webpack),
+        building_description = 'Bundling...',
         needs_transitive_deps = True,
         output_is_complete = True,
     )
 
 
+def yarn_bundle(name, version, out=None, hashes=None, test_only=False, visibility=None, deps=None):
+    """Extension to yarn_library that bundles the downloaded library using Webpack.
+
+    As seen in this repo, we use yarn_library for Webpack itself and then yarn_bundle for
+    the JS libraries to use for the other build targets.
+
+    Args:
+      name (str): Name of the rule.
+      version (str): Version of the package to install.
+      out (str): Output name for this package. Defaults to name.
+      hashes (list): List of hashes that outputs must match.
+      test_only (bool): If True, can only be depended on by test rules.
+      visibility (list): Visibility declaration for this rule.
+      deps (list): Any other dependencies of the rule.
+    """
+    lib_rule = yarn_library(
+        name = name,
+        _tag = 'download',
+        version = version,
+        out = out,
+        hashes = hashes,
+        test_only = test_only,
+    )
+    return _webpack_rule(
+        name = name,
+        srcs = [lib_rule],
+        out = out or (name + '.js'),
+        output_is_complete = False,
+        visibility = visibility,
+        requires = ['yarn', 'js'],
+        provides = {'yarn': lib_rule},
+        deps = deps,
+    )
+
+
 # Set these so others can override them using package()
 CONFIG.setdefault('NODE_TOOL', 'node')
+CONFIG.setdefault('NODE_PATH', '$TMP_DIR:$TMP_DIR/third_party/js')
 CONFIG.setdefault('WEBPACK_TOOL', '//third_party/js:webpack')
-CONFIG.setdefault('WEBPACK_CONFIG', '')
