@@ -24,7 +24,7 @@ def yarn_library(name, version, out=None, hashes=None, test_only=False, patches=
       deps (list): Any other dependencies of the rule.
     """
     url = 'https://registry.yarnpkg.com/%s/-/%s-%s.tgz' % (name, name, version)
-    cmd = 'echo "Fetching %s..." && curl -fsSL %s | tar -xz && mv package $OUT' % (url, url)
+    cmd = 'echo "Fetching %s..." && curl -fsSL %s | tar -xz --no-same-owner --no-same-permissions && mv package $OUT' % (url, url)
     if patches:
         cmd += ' && for SRC in $SRCS; do patch -p0 -l -i $SRC; done'
     return build_rule(
