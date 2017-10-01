@@ -1,7 +1,7 @@
 def js_library(name, srcs, test_only=False, visibility=None, deps=None):
     """Defines a Javascript library rule.
 
-    For now this is just a placeholder.
+    TODO(peterebden): Does not support srcs as input rules correctly.
 
     Args:
       name (str): Name of the rule.
@@ -10,14 +10,19 @@ def js_library(name, srcs, test_only=False, visibility=None, deps=None):
       visibility (list): Visibility specification.
       deps (list): Any dependencies.
     """
-    return filegroup(
+    return build_rule(
         name = name,
         srcs = srcs,
+        outs = [src + '.json.gz' for src in srcs],
+        tools = {
+            'node': [CONFIG.NODE_TOOL],
+            'webpack': [CONFIG.WEBPACK_TOOL],
+        },
+        cmd = 'LIB=1 $TOOLS_NODE $TOOLS_WEBPACK',
         test_only = test_only,
         requires = ['js'],
         visibility = visibility,
         deps = deps,
-        output_is_complete = False,
     )
 
 

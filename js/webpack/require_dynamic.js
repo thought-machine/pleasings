@@ -5,6 +5,7 @@
 const process = require('process');
 const babelLoader = require('babel-loader');
 const jsonLoader = require('json-loader');
+const plzLoader = require('./plz_loader');
 
 // Somewhat dodgy promisifying follows.
 // TODO(peterebden): Should use something better; either Node (but we don't want to
@@ -28,6 +29,7 @@ const promisify = function(loader) {
 const knownPackages = {
     'babel-loader': promisify(babelLoader),
     'json-loader': promisify(jsonLoader),
+    'plz-loader': promisify(plzLoader),
 };
 
 

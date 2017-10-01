@@ -20,19 +20,34 @@ module.exports = function(opts) {
 		test: /\.json$/,
 		use: [{ loader: 'json-loader' }],
 	    }, {
+		test: /\.js.json.gz$/,
+		use: [{
+		    loader: 'plz-loader',
+		    options: {
+			srcs: opts.srcs,
+			pkg: opts.pkg + '/',
+			tmpDir: opts.tmpDir + '/',
+		    },
+		}],
+	    }, {
 		test: /\.(js|jsx)$/,
-		use: [
-		    {
-			loader: 'babel-loader',
-			options: {
-			    babelrc: false,
-			    presets: [
-				BabelPresetES2015,
-				BabelPresetReact,
-			    ],
-			},
-		    }
-		],
+		use: [{
+		    loader: 'plz-loader',
+		    options: {
+			srcs: opts.srcs,
+			pkg: opts.pkg + '/',
+			tmpDir: opts.tmpDir + '/',
+		    },
+		}, {
+		    loader: 'babel-loader',
+		    options: {
+			babelrc: false,
+			presets: [
+			    BabelPresetES2015,
+			    BabelPresetReact,
+			],
+		    },
+		}],
 	    }]
 	},
 	node: {
@@ -43,6 +58,7 @@ module.exports = function(opts) {
 	    plugins: [requireDynamic.Resolver],
 	},
 	resolve: {
+	    extensions: ['.js', '.js.json.gz', '.json'],
 	    modules: [
 		opts.tmpDir,
 		path.join(opts.tmpDir, 'third_party/js'),
