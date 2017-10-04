@@ -1,5 +1,5 @@
 [please]
-version = >=8.7.2
+version = >=9.1.6
 
 [build]
 path = /usr/local/bin:/usr/bin:/bin
@@ -12,8 +12,7 @@ grpc-gateway-plugin = //third_party/go:protoc-gen-grpc-gateway
 grpc-gateway-dep = //third_party/proto:grpc_gateway_api
 grpc-gateway-go-dep = //third_party/go:grpc-gateway-runtime
 grpc-swagger-plugin = //third_party/go:protoc-gen-swagger
-webpack-config = //js/webpack:webpack_config
-yarn-tool = //third_party/js:yarn
+webpack-tool = //js/webpack
 rust-toolchain = //third_party/rust:toolchain
 
 [proto]
