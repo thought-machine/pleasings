@@ -11,7 +11,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	gw "grpc_gateway/test/kitten"
+	gw "proto/test/kitten"
 )
 
 var opts struct {

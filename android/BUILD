@@ -1,5 +1,11 @@
-export_file(
+filegroup(
     name = 'android',
-    src = 'android.build_defs',
+    srcs = ['android.build_defs'],
+    visibility = ['PUBLIC'],
+)
+
+filegroup(
+    name = 'native',
+    srcs = ['native.build_defs'],
     visibility = ['PUBLIC'],
 )

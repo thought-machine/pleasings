@@ -1,4 +1,4 @@
-# gRPC related rules.
+# Rules related to protocol buffers and gRPC.
 
 filegroup(
     name = 'grpc_gateway',

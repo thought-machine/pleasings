@@ -1,12 +1,15 @@
 # Example usage of grpc_gateway_library rules.
-subinclude('//grpc_gateway')
+subinclude('//proto:grpc_gateway')
 
 grpc_gateway_library(
     name = 'kitten',
     srcs = ['kitten.proto'],
-    # Only generate Go bindings so we don't have to have the other language plugins
+    # Limit language bindings so we don't have to have the other language plugins
     # installed on CI servers.
-    languages = ['go'],
+    languages = [
+        'go',
+        'py',
+    ],
 )
 
 grpc_swagger_library(

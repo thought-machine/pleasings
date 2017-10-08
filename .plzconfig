@@ -15,6 +15,7 @@ grpc-swagger-plugin = //third_party/go:protoc-gen-swagger
 webpack-tool = //js/webpack
 rust-toolchain = //third_party/rust:toolchain
 android-home = /opt/android
+android-tools-version = 25.0.3
 ; In practice you'd set these to correct values if you wanted code signing
 ; for Android apps. Obviously you'd not check the release keys into your repo.
 android-keystore =
