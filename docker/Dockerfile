@@ -39,3 +39,4 @@ RUN mkdir $ANDROID_HOME/licenses && echo -n -e "\n8933bad161af4178b1185d1a37fbf4
     "build-tools;25.0.3" \
     "platforms;android-25" \
     "ndk-bundle"
+RUN $ANDROID_HOME/tools/bin/sdkmanager "platforms;android-26"
