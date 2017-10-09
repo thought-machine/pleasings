@@ -40,3 +40,8 @@ RUN mkdir $ANDROID_HOME/licenses && echo -n -e "\n8933bad161af4178b1185d1a37fbf4
     "platforms;android-25" \
     "ndk-bundle"
 RUN $ANDROID_HOME/tools/bin/sdkmanager "platforms;android-26"
+
+# Python gRPC codegen plugin
+# This is a prebuilt version to avoid having to do a full-blown compile of the whole thing.
+RUN curl -fsSLo /usr/local/bin/grpc_python_plugin https://get.please.build/third_party/binary/grpc_python_plugin-1.4.0 && \
+    chmod +x /usr/local/bin/grpc_python_plugin
