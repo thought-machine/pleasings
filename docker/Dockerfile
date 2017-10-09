@@ -25,7 +25,7 @@ RUN apt-get install -y nodejs
 
 # Android
 ENV ANDROID_HOME "/opt/android"
-ENV ANDROID_NDK_HOME "/opt/android_ndk"
+ENV ANDROID_NDK_HOME "/opt/android/ndk-bundle"
 ENV PATH "$PATH:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools:${ANDROID_NDK_HOME}/"
 RUN apt-get -qq update && \
     apt-get install -qqy --no-install-recommends libc6-i386 lib32stdc++6 lib32gcc1 lib32ncurses5 lib32z1
@@ -36,11 +36,6 @@ RUN mkdir $ANDROID_HOME/licenses && echo -n -e "\n8933bad161af4178b1185d1a37fbf4
     echo -e "84831b9409646a918e30573bab4c9c91346d8abd" > $ANDROID_HOME/licenses/android-sdk-preview-license && \
     $ANDROID_HOME/tools/bin/sdkmanager "platform-tools" \
     "tools" \
-    "build-tools;23.0.2" \
-    "platforms;android-22" \
-    "platforms;android-23" \
-    "platforms;android-24" \
-    "platforms;android-25" && \
-    $ANDROID_HOME/tools/bin/sdkmanager "extras;android;m2repository" \
-    "extras;google;webdriver" \
-    "extras;google;google_play_services"
+    "build-tools;25.0.3" \
+    "platforms;android-25" \
+    "ndk-bundle"
