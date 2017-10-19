@@ -17,3 +17,7 @@ Currently contains the following:
    [error-prone](https://github.com/google/error-prone) for additional compile-time diagnostics.
  * Javascript: A set of rules integrating Yarn dependencies and a Webpack-based build into Please.
    Still somewhat incomplete.
+ * Package: Rules for packaging things. Currently contains a generic wrapper to
+            [fpm](https://github.com/jordansissel/fpm) and a specific one for building .deb files.
+ * Remote: Various extended rules for fetching remote files. Includes some conveniences for handling
+           git / github and one for verifying downloaded files against GPG ASCII-armoured signatures.
