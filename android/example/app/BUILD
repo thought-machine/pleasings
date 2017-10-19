@@ -1,5 +1,4 @@
 subinclude('//android')
-package(javac_tool = 'javac')
 
 android_project(
     name = 'example_app',

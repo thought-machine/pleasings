@@ -1,6 +1,5 @@
 subinclude('//android')
 subinclude('//android:native')
-package(javac_tool = 'javac')
 
 ndk_toolchain(
     version = '4.9',

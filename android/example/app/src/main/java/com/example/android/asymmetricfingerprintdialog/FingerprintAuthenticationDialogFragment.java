@@ -190,6 +190,7 @@ public class FingerprintAuthenticationDialogFragment extends DialogFragment
     /**
      * Enrolls a user to the fake backend.
      */
+    @SuppressWarnings("InsecureCryptoUsage")
     private void enroll() {
         try {
             KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");

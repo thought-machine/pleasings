@@ -8,7 +8,6 @@
 
 subinclude('//android')
 package(default_visibility = ['PUBLIC'])
-package(javac_tool = 'javac')
 
 android_jar(
     name = 'android',
