@@ -3,6 +3,6 @@ java_binary(
     name = 'javac_worker',
     main_class = 'build.please.compile.ErrorProneCompiler',
     self_executable = True,
-    deps = ['//java/error_prone/src/java/build/please/compile'],
+    deps = ['//java/error_prone/src/main/java/build/please/compile'],
     visibility = ['PUBLIC'],
 )

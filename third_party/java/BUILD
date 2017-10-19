@@ -16,3 +16,8 @@ maven_jars(
     id = 'io.grpc:grpc-all:1.1.2',
     deps = [':protobuf'],
 )
+
+maven_jar(
+    name = 'junit',
+    id = 'junit:junit:4.12',
+)
