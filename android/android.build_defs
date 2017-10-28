@@ -249,14 +249,14 @@ def android_binary(name, resources, assets=None, out=None, arch=None, deps=None,
             'other': [native_rule, aapt_rule] + (native_libs or []),
         },
         outs = ['unsigned_' + out],
-        cmd = 'mv $SRCS_DEX classes.dex && $TOOL -i . -o $OUTS --include_other --strict',
+        cmd = 'mv $SRCS_DEX classes.dex && $TOOL -a 4 -i . -o $OUTS --include_other --strict',
         requires = ['res'],
         tools = [CONFIG.JARCAT_TOOL],
     )
 
-    cmd = '%s 4 $SRC $OUT' % _android_tool('zipalign_tool')
     secrets = []
     keystore = CONFIG.get('ANDROID_KEYSTORE')
+    cmd = 'cp $SRC $OUT'
     if keystore is None:
         log.warning("android-keystore not specified, will create unsigned .apks. "
                     "Set it to an empty string if this is the desired functionality.")
@@ -272,8 +272,7 @@ def android_binary(name, resources, assets=None, out=None, arch=None, deps=None,
         cmd = ' && '.join([
             'cp $SRCS tmp.apk',
             '$TOOLS_SIGNER -verbose -keystore $SECRETS -storepass "%s" tmp.apk %s' % (password, alias),
-            '%s 4 tmp.apk tmp2.apk' % _android_tool('zipalign_tool'),
-            '$TOOLS_JARCAT -i tmp2.apk -s ".apk" -o $OUT',
+            '$TOOLS_JARCAT -a 4 -i tmp.apk -s ".apk" -o $OUT',
         ])
         secrets = [keystore]
 
@@ -287,7 +286,7 @@ def android_binary(name, resources, assets=None, out=None, arch=None, deps=None,
         visibility = visibility,
         labels = (labels or []) + ['apk'],
         tools = {
-            'signer': ['jarsigner'],
+            'signer': ['jarsigner' if keystore else None],
             'jarcat': [CONFIG.JARCAT_TOOL],
         },
     )
@@ -533,7 +532,11 @@ def android_aapt(name, manifest, out=None, tag=None, package=None, res=None,
         },
         outs = [out or 'R.java'],
         cmd = cmd,
-        tools = [CONFIG.ANDROID_JAR, aapt_tool],
+        tools = {
+            'jar': [CONFIG.ANDROID_JAR],
+            'aapt': [aapt_tool],
+            'jarcat': [CONFIG.JARCAT_TOOL],
+        },
         visibility = visibility,
         output_is_complete = True,
         building_description = 'Running aapt...',
