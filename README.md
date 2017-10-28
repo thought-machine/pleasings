@@ -7,6 +7,8 @@ part of the main Please distribution.
 Currently contains the following:
  * Android: A set of rules to build Android .apk files. Includes rules for many features of Android
    apps, including dependencies, and a set of rules for native development using the NDK.
+ * C++: Replacement rules that use [ThinLTO](http://blog.llvm.org/2016/06/thinlto-scalable-and-incremental-lto.html)
+   to perform fast incremental link-time optimisation.
  * Go: `go_bindata` rule to pack arbitrary files into Go source (see [go-bindata](https://github.com/jteeuwen/go-bindata))
  * Grm: Rules for building [Thrax](http://www.openfst.org/twiki/bin/view/GRM/Thrax) grammars.
    You'll need to have OpenFST and Thrax installed for these.

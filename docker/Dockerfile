@@ -45,3 +45,9 @@ RUN $ANDROID_HOME/tools/bin/sdkmanager "platforms;android-26"
 # This is a prebuilt version to avoid having to do a full-blown compile of the whole thing.
 RUN curl -fsSLo /usr/local/bin/grpc_python_plugin https://get.please.build/third_party/binary/grpc_python_plugin-1.4.0 && \
     chmod +x /usr/local/bin/grpc_python_plugin
+
+# New version of Clang (for ThinLTO)
+RUN curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+    echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial main" > /etc/apt/sources.list.d/llvm.list && \
+    apt-get update && \
+    apt-get install -y clang-6.0
