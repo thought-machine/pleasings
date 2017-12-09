@@ -74,3 +74,9 @@ sh_test(
     src = 'test.sh',
     data = [':bin'],
 )
+
+cc_binary(
+    name = 'simple_bin',
+    srcs = ['simple_main.cc'],
+    deps = [':kitten'],
+)
