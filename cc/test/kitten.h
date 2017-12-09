@@ -8,11 +8,12 @@ class Kitten {
 public:
   Kitten();
   Kitten(const std::string& name, int age);
+  virtual ~Kitten();
 
   // Getters and setters would normally be unnecessary fussy for a class like
   // this, but they give ThinLTO something to do.
   const std::string& Name() const;
-  void Rename(const std::string& new_name);
+  virtual void Rename(const std::string& new_name);
   int Age() const;
   void SetAge(int new_age);
 

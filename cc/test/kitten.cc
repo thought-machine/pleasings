@@ -4,6 +4,7 @@ using std::string;
 
 Kitten::Kitten(): age_(0) {}
 Kitten::Kitten(const string& name, int age): name_(name), age_(age) {}
+Kitten::~Kitten() {}
 
 const string& Kitten::Name() const {
   return name_;

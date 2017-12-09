@@ -53,10 +53,20 @@ cc_test(
     deps = [':family'],
 )
 
+cc_shared_object(
+    name = 'cats',
+    srcs = ['factory.cc'],
+    hdrs = ['factory.h'],
+    deps = [':family'],
+)
+
 cc_binary(
     name = 'bin',
     srcs = ['main.cc'],
-    deps = [':family'],
+    deps = [
+        ':cats',
+        ':family',
+    ],
 )
 
 sh_test(
