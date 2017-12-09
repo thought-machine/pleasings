@@ -28,8 +28,9 @@ _WHOLE_ARCHIVE = '-all_load' if CONFIG.OS == 'darwin' else '--whole-archive'
 _NO_WHOLE_ARCHIVE = '-noall_load' if CONFIG.OS == 'darwin' else '--no-whole-archive'
 
 
-def cc_library(name, srcs=None, hdrs=None, private_hdrs=None, deps=None, visibility=None, test_only=False,
-               compiler_flags=None, linker_flags=None, pkg_config_libs=None, includes=None, defines=None,
+def cc_library(name, srcs=None, hdrs=None, private_hdrs=None, asm_srcs=None, deps=None,
+               visibility=None, test_only=False, compiler_flags=None, linker_flags=None,
+               pkg_config_libs=None, includes=None, defines=None,
                alwayslink=False, thinlto=True, _c=False):
     """Generate a C or C++ library target.
 
@@ -40,6 +41,7 @@ def cc_library(name, srcs=None, hdrs=None, private_hdrs=None, deps=None, visibil
                    between srcs and hdrs is important.
       private_hdrs (list): Header files that are available only to this rule and not exported to
                            dependent rules.
+      asm_srcs (list): List of assembly files to compile alongside this library.
       deps (list): Dependent rules.
       visibility (list): Visibility declaration for this rule.
       test_only (bool): If True, is only available to other test rules.
@@ -175,7 +177,7 @@ def cc_library(name, srcs=None, hdrs=None, private_hdrs=None, deps=None, visibil
             'idx': [idx_rule],
         },
         outs = [out + '.o'],
-        cmd = '$TOOL -o $OUT -x ir $SRCS_BC -c -fthinlto-index=$SRCS_IDX',
+        cmd = '$TOOL -o $OUT -x ir $SRCS_BC -c -fPIC -fthinlto-index=$SRCS_IDX',
         requires = ['cc_bc'],
         deps = bc_rules,
         building_description = 'Compiling / linking...',
@@ -183,6 +185,28 @@ def cc_library(name, srcs=None, hdrs=None, private_hdrs=None, deps=None, visibil
         tools = tools,
         output_is_complete = True,
     ) for bc_rule, idx_rule, tag, out in zip(bc_rules, idx_rules, tags, outs)]
+
+    # Assembly doesn't seem to play so well with ThinLTO.
+    if asm_srcs:
+        cmds, tools = _library_cmds(_c, compiler_flags, pkg_config_libs)
+        tags = [src.replace('/', '_').replace('.', '_').replace(':', '_').replace('|', '_') for src in asm_srcs]
+        outs = [name + '_' + tag for tag in tags]
+        o_rules.extend([build_rule(
+            name = name,
+            tag = tag,
+            srcs = {'srcs': [src], 'hdrs': hdrs, 'priv': private_hdrs},
+            outs = [out + '.o'],
+            deps = deps,
+            cmd = cmds,
+            building_description = 'Compiling...',
+            requires = ['cc_hdrs'],
+            test_only = test_only,
+            labels = labels,
+            tools = tools,
+            pre_build = _library_transitive_labels(_c, compiler_flags, pkg_config_libs, thinlto=False) if (deps or includes or defines) else None,
+            needs_transitive_deps = True,
+        ) for src, tag, out in zip(asm_srcs, tags, outs)])
+
 
     # Collect these as a single rule which we can then provide.
     # We must do this even if there's only one in order to make sure the correct
@@ -595,17 +619,21 @@ def _binary_cmds(c, linker_flags, pkg_config_libs, extra_flags='', shared=False,
     }
 
 
-def _library_transitive_labels(c, compiler_flags, pkg_config_libs):
+def _library_transitive_labels(c, compiler_flags, pkg_config_libs, thinlto=True):
     """Applies commands from transitive labels to a cc_library rule."""
     def apply_transitive_labels(name):
         labels = get_labels(name, 'cc:')
         flags = ['-isystem %s' % l[4:] for l in labels if l.startswith('inc:')]
         flags.extend('-D' + l[4:] for l in labels if l.startswith('def:'))
         pkg_config_libs.extend(l[3:] for l in labels if l.startswith('pc:') and l[3:] not in pkg_config_libs)
-        if flags:  # Don't update if there aren't any relevant labels
+        if not flags:
+            return # Don't update if there aren't any relevant labels
+        elif thinlto:
             cmds, _ = _thinlto_library_cmds(c, compiler_flags, pkg_config_libs, ' '.join(flags))
-            for k, v in cmds.items():
-                set_command(name, k, v)
+        else:
+            cmds, _ = _library_cmds(c, compiler_flags, pkg_config_libs, ' '.join(flags))
+        for k, v in cmds.items():
+            set_command(name, k, v)
     return apply_transitive_labels
 
 
