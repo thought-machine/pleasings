@@ -169,6 +169,7 @@ def cc_library(name, srcs=None, hdrs=None, private_hdrs=None, asm_srcs=None, dep
     ) for bc_rule, tag, out in zip(bc_rules, tags, outs)]
 
     # And for the actual object files
+    cmd = '$TOOL -o $OUT -x ir $SRCS_BC -c -fthinlto-index=$SRCS_IDX '
     o_rules = [build_rule(
         name = name,
         tag = tag + '_o',
@@ -177,7 +178,10 @@ def cc_library(name, srcs=None, hdrs=None, private_hdrs=None, asm_srcs=None, dep
             'idx': [idx_rule],
         },
         outs = [out + '.o'],
-        cmd = '$TOOL -o $OUT -x ir $SRCS_BC -c -fPIC -fthinlto-index=$SRCS_IDX',
+        cmd = {
+            'opt': cmd + _build_flags(compiler_flags, pkg_config_libs, defines=defines, c=_c, dbg=False),
+            'dbg': cmd + _build_flags(compiler_flags, pkg_config_libs, defines=defines, c=_c, dbg=True),
+        },
         requires = ['cc_bc'],
         deps = bc_rules,
         building_description = 'Compiling / linking...',
