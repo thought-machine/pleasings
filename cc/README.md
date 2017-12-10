@@ -10,3 +10,6 @@ almost certainly use older versions as well.
 
 There's a small set of extremely contrived code to illustrate and
 lightly test it.
+
+This is still *extremely* experimental and is known not to work
+entirely correctly yet.
