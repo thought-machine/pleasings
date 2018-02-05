@@ -26,8 +26,7 @@ go_get(
 
 go_get(
     name = 'protobuf',
-    get = 'github.com/golang/protobuf/proto',
-    install = ['github.com/golang/protobuf/protoc-gen-go/descriptor'],
+    get = 'github.com/golang/protobuf/ptypes',
 )
 
 go_get(
