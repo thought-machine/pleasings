@@ -49,6 +49,9 @@ def grpc_gateway_library(name, srcs, deps=None, visibility=None, languages=None,
         languages = {x: None for x in languages}
     languages['go'] = _grpc_gateway_def()
     languages['swagger'] = _swagger_def()
+    # This is not really super elegant - really we should use $(dir ) style replacements, but
+    # in fact the two turn out to be equivalent and this allows it to be used transitively.
+    package, _ = decompose(label=CONFIG.GRPC_GATEWAY_DEP)
     grpc_library(
         name = name,
         srcs = srcs,
@@ -59,7 +62,7 @@ def grpc_gateway_library(name, srcs, deps=None, visibility=None, languages=None,
         root_dir = root_dir,
         visibility = visibility,
         # Everything needs to know where to find this dependency.
-        protoc_flags = ['-I.', '-I$TMP_DIR/$(dir %s)' % CONFIG.GRPC_GATEWAY_DEP],
+        protoc_flags = ['-I.', '-I$TMP_DIR/' + package],
     )
 
 
@@ -159,6 +162,6 @@ def _swagger_def():
             test_only = test_only,
             requires = ['swagger'],
         ),
-        protoc_flags = ['--plugin=protoc-gen-swagger=$TOOLS_SWAGGER'],
+        protoc_flags = ['--swagger_out=$TMP_DIR', '--plugin=protoc-gen-swagger=$TOOLS_SWAGGER'],
         tools = [CONFIG.GRPC_SWAGGER_PLUGIN],
     )
