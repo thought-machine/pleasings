@@ -90,7 +90,7 @@ def grpc_swagger_library(name, srcs, deps=None, visibility=None, test_only=False
     )
 
 
-def grpc_gateway_api(name, repo='https://github.com/grpc-ecosystem/grpc-gateway',
+def grpc_gateway_api(name, repo='grpc-ecosystem/grpc-gateway',
                      dir='third_party/googleapis/google/api', deps=None, visibility=None):
     """Defines a rule to fetch the googleapis dependency of grpc-gateway.
 
@@ -136,16 +136,15 @@ def grpc_gateway_api(name, repo='https://github.com/grpc-ecosystem/grpc-gateway'
 def _grpc_gateway_def():
     # Copy & modify the existing Go definition so we don't have to reinvent wheels.
     d = grpc_languages().get('go').copy()
-    d.update({
-        'extensions': {'go': ['.pb.go', '.pb.gw.go']},
-        'protoc_flags': [
-            '--plugin=protoc-gen-go=${TOOLS_GO%% *}',
-            '--plugin=protoc-gen-grpc-gateway=${TOOLS_GO#* }',
-            '--grpc-gateway_out=logtostderr=true:$TMP_DIR',
-        ],
-        'tools': [CONFIG.PROTOC_GO_PLUGIN, CONFIG.GRPC_GATEWAY_PLUGIN],
-        'deps': [CONFIG.PROTO_GO_DEP, CONFIG.GRPC_GO_DEP, CONFIG.GRPC_GATEWAY_GO_DEP],
-    })
+    d['extensions'] = {'go': ['.pb.go', '.pb.gw.go']}
+    d['protoc_flags'] = [
+        '--go_out=$TMP_DIR',
+        '--plugin=protoc-gen-go=${TOOLS_GO%% *}',
+        '--plugin=protoc-gen-grpc-gateway=${TOOLS_GO#* }',
+        '--grpc-gateway_out=logtostderr=true:$TMP_DIR',
+    ]
+    d['tools'] = [CONFIG.PROTOC_GO_PLUGIN, CONFIG.GRPC_GATEWAY_PLUGIN]
+    d['deps'] = [CONFIG.PROTO_GO_DEP, CONFIG.GRPC_GO_DEP, CONFIG.GRPC_GATEWAY_GO_DEP, CONFIG.GRPC_GATEWAY_DEP]
     return d
 
 

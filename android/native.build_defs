@@ -85,8 +85,8 @@ def ndk_toolchain(arch, version, platform, root=None, stl='gnu-libstdc++',
         default_opt_cppflags = CONFIG.DEFAULT_OPT_CPPFLAGS + cppflags,
         default_ldflags = (CONFIG.DEFAULT_LDFLAGS + ldflags).strip(),
     )
-    CONFIG.NDK_ARCH = arch
-    CONFIG.NDK_ABI = abi
+    CONFIG['NDK_ARCH'] = arch
+    CONFIG['NDK_ABI'] = abi
 
 
 def ndk_shared_object(name, srcs=None, hdrs=None, out='', compiler_flags=None, linker_flags=None,

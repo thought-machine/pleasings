@@ -17,6 +17,10 @@ at what point we'll be able to support this.
 
 Obviously, you must be using sufficiently recent versions of Clang and Gold
 (or lld) in order for this to work.
+
+For now there are no C versions, but it'd not be hard to add those if needed.
+
+N.B. These are VERY experimental and known not to work completely yet.
 """
 
 # Save this for later.
@@ -537,17 +541,17 @@ def _build_flags(compiler_flags, pkg_config_libs, defines=None, c=False, dbg=Fal
         compiler_flags = [CONFIG.DEFAULT_DBG_CPPFLAGS if dbg else CONFIG.DEFAULT_OPT_CPPFLAGS] + compiler_flags
     compiler_flags.append('-fPIC')
     if defines:
-        compiler_flags.extend('-D' + define for define in defines)
-    pkg_config_cmd = ' '.join('`pkg-config --cflags %s`' % x for x in pkg_config_libs or [])
+        compiler_flags.extend(['-D' + define for define in defines])
+    pkg_config_cmd = ' '.join(['`pkg-config --cflags %s`' % x for x in pkg_config_libs or []])
     return ' '.join(compiler_flags) + ' ' + pkg_config_cmd
 
 
 def _binary_build_flags(linker_flags, pkg_config_libs, shared=False, alwayslink=''):
     """Builds flags that we'll pass to the linker invocation."""
-    pkg_config_cmd = ' '.join('`pkg-config --libs %s`' % x for x in pkg_config_libs or [])
+    pkg_config_cmd = ' '.join(['`pkg-config --libs %s`' % x for x in pkg_config_libs or []])
     objs = '`find . -name "*.o" -or -name "*.a" | sort`'
     linker_prefix = '' if CONFIG.LINK_WITH_LD_TOOL else '-Wl,'
-    if not shared and alwayslink:
+    if (not shared) and alwayslink:
         objs = '%s%s %s %s%s %s' % (linker_prefix, _WHOLE_ARCHIVE, alwayslink, linker_prefix, _NO_WHOLE_ARCHIVE, objs)
     build_id_flag = ''
     if CONFIG.OS != 'darwin':
@@ -561,7 +565,7 @@ def _binary_build_flags(linker_flags, pkg_config_libs, shared=False, alwayslink=
         build_id_flag = linker_prefix + '--build-id=none'
     if shared:
         objs = '-shared %s%s %s %s%s' % (linker_prefix, _WHOLE_ARCHIVE, objs, linker_prefix, _NO_WHOLE_ARCHIVE)
-    linker_flags = ' '.join(linker_prefix + f for f in (linker_flags or []))
+    linker_flags = ' '.join([linker_prefix + f for f in (linker_flags or [])])
     return ' '.join([objs, build_id_flag, linker_flags, pkg_config_cmd])
 
 
@@ -600,8 +604,8 @@ def _library_transitive_labels(c, compiler_flags, pkg_config_libs):
     def apply_transitive_labels(name):
         labels = get_labels(name, 'cc:')
         flags = ['-isystem %s' % l[4:] for l in labels if l.startswith('inc:')]
-        flags.extend('-D' + l[4:] for l in labels if l.startswith('def:'))
-        pkg_config_libs.extend(l[3:] for l in labels if l.startswith('pc:') and l[3:] not in pkg_config_libs)
+        flags.extend(['-D' + l[4:] for l in labels if l.startswith('def:')])
+        pkg_config_libs.extend([l[3:] for l in labels if l.startswith('pc:') and l[3:] not in pkg_config_libs])
         if flags:  # Don't update if there aren't any relevant labels
             cmds, _ = _thinlto_library_cmds(c, compiler_flags, pkg_config_libs, ' '.join(flags))
             for k, v in cmds.items():
@@ -615,10 +619,10 @@ def _binary_transitive_labels(c, linker_flags, pkg_config_libs, shared=False):
         labels = get_labels(name, 'cc:')
         linker_prefix = '' if CONFIG.LINK_WITH_LD_TOOL else '-Wl,'
         flags = [linker_prefix + l[3:] for l in labels if l.startswith('ld:')]
-        flags.extend('`pkg-config --libs %s`' % l[3:] for l in labels if l.startswith('pc:'))
+        flags.extend(['`pkg-config --libs %s`' % l[3:] for l in labels if l.startswith('pc:')])
         # ./ here because some weak linkers don't realise ./lib.a is the same file as lib.a
         # and report duplicate symbol errors as a result.
-        alwayslink = ' '.join('./' + l[3:] for l in labels if l.startswith('al:'))
+        alwayslink = ' '.join(['./' + l[3:] for l in labels if l.startswith('al:')])
         # Probably a little optimistic to check this (most binaries are likely to have *some*
         # kind of linker flags to apply), but we might as well.
         if flags or alwayslink:
@@ -626,23 +630,3 @@ def _binary_transitive_labels(c, linker_flags, pkg_config_libs, shared=False):
             for k, v in cmds.items():
                 set_command(name, k, v)
     return apply_transitive_labels
-
-
-# C rules. These call straight through to the c++ versions and just set a flag.
-def c_library(**kwargs):
-    cc_library(_c=True, **kwargs)
-
-def c_object(**kwargs):
-    cc_object(_c=True, **kwargs)
-
-def c_static_library(**kwargs):
-    cc_static_library(_c=True, **kwargs)
-
-def c_shared_object(**kwargs):
-    cc_shared_object(_c=True, **kwargs)
-
-def c_binary(**kwargs):
-    cc_binary(_c=True, **kwargs)
-
-def c_test(write_main=False, **kwargs):
-    cc_test(_c=True, write_main=write_main, **kwargs)

@@ -1,7 +1,7 @@
 subinclude('//remote')
 
 def yarn_library(name, version, out=None, hashes=None, test_only=False, patches=None,
-                 visibility=None, deps=None, _tag=None):
+                 visibility=None, deps=None, _tag=''):
     """Install a third-party library from the Yarn registry.
 
     The typical workflow for this is to use Yarn to set up your package.json and yarn.lock,
