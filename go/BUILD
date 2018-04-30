@@ -7,7 +7,7 @@ filegroup(
 )
 
 filegroup(
-    name = 'go_yacc',
-    srcs = ['go_yacc.build_defs'],
+    name = 'go_generate',
+    srcs = ['go_generate.build_defs'],
     visibility = ['PUBLIC'],
 )

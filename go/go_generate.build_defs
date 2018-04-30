@@ -1,0 +1,52 @@
+"""Build rule to run 'go generate' against some sources.
+
+This is quite tricky since it requires the full go build gubbins and we therefore
+have to make packages available on its search paths as it would like. Hence this
+now lives in this repo rather than as a builtin since it's very hard to support.
+"""
+
+def go_generate(name:str, srcs:list, tools:list, deps:list=None, visibility:list=None, test_only:bool&testonly=False):
+    """Generates a `go generate` rule.
+
+    Args:
+      name (str): Name of the rule.
+      srcs (list): Go source files to run go generate over.
+      tools (list): A list of targets which represent binaries to be used via `go generate`.
+      deps (list): Dependencies
+      visibility (list): Visibility specification
+      test_only (bool): If True, is only visible to test rules.
+    """
+    # We simply capture all go files produced by go generate.
+    def _post_build(rule_name, output):
+        for out in output:
+            if out.endswith('.go') and srcs and out not in srcs:
+                add_out(rule_name, out)
+
+    # All the tools must be in the $PATH.
+    cmd = ' && '.join([
+        # It's essential that we copy all .a files up a directory as well; we tend to output them one level
+        # down from where Go expects them to be.
+        _LINK_PKGS_CMD,
+        # It's also essential that the compiled .a files are under this prefix, otherwise gcimporter won't find them.
+        'mkdir pkg',
+        'ln -s . src',
+        'ln -s $TMP_DIR pkg/%s_%s' % (CONFIG.OS, CONFIG.ARCH),
+        'export PATH="$(echo "$TOOLS_GEN " | sed -E -e \'s|/[^/]+[ ]|:|g\')$PATH"',
+        'GOPATH="%s" $TOOLS_GO generate $SRCS' % CONFIG.GOPATH,
+        'mv $PKG_DIR/*.go .',
+        'ls *.go'
+    ])
+    return build_rule(
+        name=name,
+        srcs=srcs,
+        deps=deps,
+        tools={
+            'go': [CONFIG.GO_TOOL],
+            'gen': tools,
+        },
+        cmd=cmd,
+        visibility=visibility,
+        test_only=test_only,
+        post_build=_post_build,
+        requires = ['go', 'go_src'],
+    )
