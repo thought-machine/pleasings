@@ -1,9 +1,9 @@
  
  
- def build_docker_image(name, dockerfile, data, visibility=None):
- build_rule(
-     name = name,
-     cmd = 'echo hello_muktesh',
+def build_docker_image(name, dockerfile, data, visibility=None):
+    build_rule(
+        name = name,
+        cmd = 'echo hello_muktesh',
     )
 	      
 
