@@ -1,0 +1,10 @@
+ 
+ 
+ def build_docker_image(name, dockerfile, data, visibility=None):
+	      """Builds dockers image and pushes to artifactory based on given params."""
+	      build_rule(
+	          name = name,
+	          cmd = 'echo hello_muktesh',
+	      )
+	      
+
