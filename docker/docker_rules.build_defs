@@ -3,7 +3,7 @@
 def build_docker_image(name:str, dockerfile:str, visibility=None):
     
     tag = "%s:latest"%(name)
-    command = "docker build -t %s -f %s" % (tag, dockerfile)
+    command = "docker build -t %s %s" % (tag, dockerfile)
 
     
     build_rule(
