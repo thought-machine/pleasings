@@ -2,7 +2,9 @@
  
 def build_docker_image(name, dockerfile, visibility=None):
     
+    command = 'docker build {}'.format(dockerfile)
+    
     build_rule(
         name = name,
-        cmd = 'docker build $dockerfile',
+        cmd = command,
     )
