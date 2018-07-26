@@ -2,7 +2,7 @@
  
 def build_docker_image(name:str, dockerfile:str, visibility=None):
     
-    command = 'docker -t please_test:latest build -f ' + dockerfile
+    command = 'docker build -t please_test:latest -f ' + dockerfile
 
     
     build_rule(
