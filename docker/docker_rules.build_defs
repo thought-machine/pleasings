@@ -1,8 +1,7 @@
  
  
-def build_docker_image(name, resources, visibility=None):
-    dockerfile = SRCS_RESOURCES[0]
-
+def build_docker_image(name:str, dockerfile:str, visibility=None):
+    
     command = 'docker build {}'.format(dockerfile)
     
     build_rule(
