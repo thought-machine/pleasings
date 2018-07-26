@@ -1,7 +1,7 @@
  
  
 def build_docker_image(name, resources, visibility=None):
-    dockerfile = $SRCS_RESOURCES[0]
+    dockerfile = SRCS_RESOURCES[0]
 
     command = 'docker build {}'.format(dockerfile)
     
