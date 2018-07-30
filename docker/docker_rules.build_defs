@@ -4,12 +4,12 @@ def build_docker_image(name:str, dockerfile:str, visibility=None, out:str=None):
     
     tag = "%s:latest"%(name)
     #out = out or name   
-    command = "docker build --no-cache -t  %s %s >> build.log" % (tag, dockerfile)
+    command = "docker build --no-cache -t  %s %s >> docker_build.log" % (tag, dockerfile)
 
     
     return build_rule(
         name = name,
         cmd = command,
-        output_is_complete = True,
+        outs = ['docker_build.log']
         visibility = visibility,
     )
