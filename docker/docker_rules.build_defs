@@ -10,6 +10,6 @@ def build_docker_image(name:str, dockerfile:str, visibility=None, out:str=None):
     return build_rule(
         name = name,
         cmd = command,
-        outs = ['docker_build.log']
+        outs = ['docker_build.log'],
         visibility = visibility,
     )
