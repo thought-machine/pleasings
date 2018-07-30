@@ -11,5 +11,5 @@ def build_docker_image(name:str, dockerfile:str, visibility=None, out:str=None):
         name = name,
         cmd = command,
         outs = ['docker_build.log'],
-        visibility = visibility,
+        visibility = visibility
     )
