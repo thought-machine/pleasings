@@ -1,6 +1,6 @@
  
  
-def build_docker_image(name:str, dockerfile:str, visibility=None):
+def build_docker_image(name:str, dockerfile:str, visibility=None, out:str=None):
     
     tag = "%s:latest"%(name)
     out = out or name   
@@ -11,6 +11,6 @@ def build_docker_image(name:str, dockerfile:str, visibility=None):
         name = name,
         outs=[out],
         cmd = command,
-        output_is_coplete = True,
+        output_is_complete = True,
         visibility = visibility,
     )
