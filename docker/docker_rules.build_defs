@@ -5,9 +5,7 @@ def build_docker_image(name:str, dockerfile:str, visibility=None, out:str=None):
     tag = "%s:latest"%(name)
     output = "%s.log" %(tag)
     command = "docker build --no-cache -t  %s %s > %s " % (tag, dockerfile, output)
-    cmds = ['mkdir _tmp']
     
-    cmd = ' && '.join(cmds)
     build_rule(
         name = name,
         cmd = command,
