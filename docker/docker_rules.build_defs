@@ -5,9 +5,9 @@ def build_docker_image(name:str, dockerfile:str, visibility=None, out:str=None):
     tag = "%s:latest"%(name)
     log.info("Building docker image for %s" % tag)
     output = "%s.log" %(tag)
-    base = $(basename $PKG)
+    #base = $(basename $PKG)
     log.info("base is")
-    log.info(base)
+    #log.info(base)
     log.info("pkg is")
     pkg = '$PKG'
     log.info(pkg)
