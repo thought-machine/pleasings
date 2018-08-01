@@ -5,9 +5,7 @@ def build_docker_image(name:str, dockerfile:str, visibility=None, out:str=None):
     tag = "%s:latest"%(name)
     log.info("Building docker image for %s" % tag)
     output = "%s.log" %(tag)
-    #base = $(basename $PKG)
     log.info("base is")
-    #log.info(base)
     log.info("pkg is")
     pkg = '$PKG'
     log.info(pkg)
@@ -20,7 +18,7 @@ def build_docker_image(name:str, dockerfile:str, visibility=None, out:str=None):
     build_rule(
         name = name,
         cmd = command,
-        building_description='building build_docker_image...',
+        building_description='building docker_image...',
         output_is_complete=True,
         outs = [output],
         visibility = visibility
