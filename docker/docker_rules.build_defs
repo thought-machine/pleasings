@@ -6,10 +6,10 @@ def build_docker_image(name:str, dockerfile:str, visibility=None, out:str=None):
     log.info("Building docker image for %s" % tag)
     output = "%s.log" %(tag)
     log.info("pkg is")
-    pkg  = '$PKG'
+    pkg  = ${PKG}
     log.info(pkg)
     log.info("pkg dir is")
-    log.info('$PKG_DIR')
+    log.info(${PKG_DIR})
     
     command = "docker build --no-cache -t  %s %s > %s " % (tag, dockerfile, output)
     
