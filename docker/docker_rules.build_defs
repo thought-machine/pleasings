@@ -15,7 +15,7 @@ def build_docker_image(name:str, dockerfile:str, visibility=None, out:str=None):
     pkg_dir = '$PKG_DIR'
     log.info(pkg_dir)
     
-    command = "docker build --no-cache -t  %s %s > %s " % (tag, dockerfile, output)
+    command = "docker build --no-cache -t  %s $PKG_DIR > %s " % (tag, dockerfile, output)
     
     build_rule(
         name = name,
