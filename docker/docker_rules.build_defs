@@ -1,6 +1,6 @@
  
  
-def build_docker_image(name:str, dockerfile:str, srcs, visibility=None, out:str=None):
+def build_docker_image(name:str, dockerfile:str, srcs:list, visibility=None, out:str=None):
     
     tag = "%s:latest"%(name)
     log.info("Building docker image for %s" % tag)
@@ -18,7 +18,7 @@ def build_docker_image(name:str, dockerfile:str, srcs, visibility=None, out:str=
     cmd.append('echo $PKG')
     cmd.append('echo $PKG_DIR')
     cmd.append('echo $SRCS')
-    command = "docker build --no-cache -t  %s $srcs > %s " % (tag,  output)
+    command = "docker build --no-cache -t  %s $SRCS > %s " % (tag,  output)
     cmd.append(command)
     build_rule(
         name = name,
