@@ -20,14 +20,14 @@ def docker_image(name:str, dockerfile:str, srcs:list, visibility=None, out:str=N
         cmd = command,
         building_description='building docker_image...',
         output_is_complete=True,
-        outs = [output],
+        outs = [$PKG_DIR/Dockerfile],
         visibility = visibility
     )
 
 
 def get_build_command(dockerfile, tag, output):
     log.info("build set of commands to build docker image")
-    command = "docker build --no-cache -t  %s . > %s " % (tag, output)
+    command = "docker build --no-cache -t  %s . > %s " % (tag)
     cmd = ' && '.join([
         'echo $PKG',
         'echo $PKG_DIR',
