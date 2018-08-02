@@ -1,10 +1,10 @@
  
  
-def build_docker_image(name:str, dockerfile:str, srcs:list, visibility=None, out:str=None):
+def docker_image(name:str, dockerfile:str, srcs:list, visibility=None, out:str=None):
     
     tag = "%s:latest"%(name)
     log.info("Building docker image for %s" % tag)
-    #dock = get_docker_file(srcs)
+    dock = get_docker_file(srcs)
     output = "%s.log" %(tag)
     log.info("base is")
     log.info("pkg is")
@@ -15,10 +15,7 @@ def build_docker_image(name:str, dockerfile:str, srcs:list, visibility=None, out
     log.info(pkg_dir)
     
     cmd = []
-    cmd.append('echo $PKG')
-    cmd.append('echo $PKG_DIR')
-    cmd.append('echo $SRCS')
-    command = "docker build --no-cache -t  %s $SRCS > %s " % (tag,  output)
+    command = "docker build --no-cache -t  %s %s > %s " % (tag,  dock, output)
     cmd.append(command)
     build_rule(
         name = name,
@@ -32,9 +29,12 @@ def build_docker_image(name:str, dockerfile:str, srcs:list, visibility=None, out
 
 def get_docker_file(srcs):
     log.info(srcs)
-    dockerfile = srcs[0]
-    if dockerfile is not None:
-        log.info(dockerfile)
-        return dockerfile
-    
+    for file in srcs:
+        log.info(file)
+        if file is not None:
+            return file
+        else:
+            log.fatal("No docker file found exiting")       
+
+
        
