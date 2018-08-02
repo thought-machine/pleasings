@@ -14,8 +14,12 @@ def build_docker_image(name:str, dockerfile:str, srcs, visibility=None, out:str=
     pkg_dir = '$PKG_DIR'
     log.info(pkg_dir)
     
+    cmd = []
+    cmd.append('echo $PKG')
+    cmd.append('echo $PKG_DIR')
+    cmd.append('echo $SRCS')
     command = "docker build --no-cache -t  %s $srcs > %s " % (tag,  output)
-    
+    cmd.append(command)
     build_rule(
         name = name,
         cmd = command,
