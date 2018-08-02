@@ -37,7 +37,6 @@ def get_build_command(dockerfile, tag, output):
     log.info("build set of commands to build docker image")
     command = "docker build --no-cache -t  %s . > %s " % (tag, output)
     cmd = ' && '.join([
-        _LINK_PKGS_CMD,
         'mkdir pkg',
         'ln -s . src',
         'ln -s $TMP_DIR pkg/%s_%s' % (CONFIG.OS, CONFIG.ARCH),
