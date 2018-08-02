@@ -3,7 +3,7 @@
 def docker_image(name:str, dockerfile:str, srcs:list, visibility=None, out:str=None):
     
     tag = "%s:latest"%(name)
-    echo /Users/mbm016/workspace/gitlab/please-playground/plz-out/python | cut -d "/plz-out" -f2
+    #echo /Users/mbm016/workspace/gitlab/please-playground/plz-out/python | cut -d "/plz-out" -f2
 
     log.info("Building docker image for %s" % tag)
     #dock = get_docker_file(srcs)
