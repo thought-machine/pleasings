@@ -35,7 +35,7 @@ def get_build_command(dockerfile, tag, output):
         'echo pwd is ',
         'pwd',
         'mkdir pkg',
-        'ln -s $PKG_DIR/* /pkg',
+        'ln -s $PKG_DIR/* pkg',
         'ln -s $TMP_DIR pkg/%s_%s' % (CONFIG.OS, CONFIG.ARCH),
         'docker build --no-cache -t  %s /pkg > %s ' % (tag, output)
     ])
