@@ -20,7 +20,6 @@ def docker_image(name:str, dockerfile:str, srcs:list, visibility=None, out:str=N
         cmd = command,
         building_description='building docker_image...',
         output_is_complete=True,
-        outs = [dockerfile],
         visibility = visibility
     )
 
