@@ -8,6 +8,7 @@ def docker_image(name:str, dockerfile:str, srcs:list, deps:list=[], visibility=N
     log.info(deps)
     output = "%s.log" %(tag)
     log.debug("Command to execute is :")
+    loc = f'$(location :{name})'
     build_rule(
         name = name,
         cmd = ' && '.join([
@@ -17,7 +18,7 @@ def docker_image(name:str, dockerfile:str, srcs:list, deps:list=[], visibility=N
             'echo pwd is ',
             'pwd',
             'echo srcs are',
-            '$srcs',
+            '%s' % (loc),
             'mkdir pkg',
             'mv $PKG_DIR/%s /pkg' % (dockerfile),
             'docker build --no-cache -t  %s /pkg/ > %s ' % (tag, output)
