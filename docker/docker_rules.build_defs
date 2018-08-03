@@ -14,6 +14,8 @@ def docker_image(name:str, dockerfile:str, srcs:list, visibility=None, out:str=N
             'echo $TMP_DIR',
             'echo pwd is ',
             'pwd',
+            'echo srcs are',
+            '$SRCS',
             'mkdir pkg',
             'ln $SRCS /pkg/%s_%s'%(CONFIG.OS, CONFIG.ARCH),
             'ln $TMP_DIR pkg/%s_%s' % (CONFIG.OS, CONFIG.ARCH),
