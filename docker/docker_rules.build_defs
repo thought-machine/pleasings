@@ -1,6 +1,6 @@
  
  
-def docker_image(name:str, dockerfile:str, srcs:list, deps:list=[], visibility=None, out:str=None):
+def docker_image(name:str, dockerfile:str, files:list=[], deps:list=[], visibility=None, out:str=None):
     
     tag = "%s:latest"%(name)
     log.info("Building docker image for %s" % tag)
@@ -11,9 +11,6 @@ def docker_image(name:str, dockerfile:str, srcs:list, deps:list=[], visibility=N
     build_rule(
         name = name,
         cmd = ' && '.join([
-            'echo $PKG',
-            'echo $PKG_DIR',
-            'echo $TMP_DIR',
             'echo pwd is ',
             'pwd',
             'mkdir _tmp',
