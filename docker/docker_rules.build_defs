@@ -17,7 +17,7 @@ def docker_image(name:str, dockerfile:str, srcs:list, deps:list=[], visibility=N
             'echo pwd is ',
             'pwd',
             'mkdir _tmp',
-            'cp $(location %s) _tmp/' % (dockerfile)
+            'cp $(location %s) _tmp/' % (dockerfile),
             'docker build --no-cache -t  %s _tmp/ > %s ' % (tag, output)
             ]),
         building_description='building docker_image...',
