@@ -13,7 +13,7 @@ def docker_image(name:str, dockerfile:str, files:list=[], deps:list=[], visibili
             'pwd',
             'mkdir _tmp']
     for file in files:
-        cmds.extend('echo $(location %s)' % file)
+        cmds.append('echo $(location %s)' % file)
     
     cmd = ' && '.join(cmds)
     build_rule(
