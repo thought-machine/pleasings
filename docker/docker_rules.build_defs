@@ -11,7 +11,7 @@ def docker_image(name:str, srcs:list|dict=None, deps:list=[], push_to_repository
             'pwd',
             'mkdir _tmp',
             'cp $SRCS_RESOURCES _tmp',
-            'docker build -t le:latest _tmp > $OUT']
+            'docker build -t %s _tmp > $OUT' % (tag)]
     if push_to_repository:
         cmds.append('echo pushing to artifactory')
     cmd = ' && '.join(cmds)
@@ -19,6 +19,7 @@ def docker_image(name:str, srcs:list|dict=None, deps:list=[], push_to_repository
         name = name,
         cmd = cmd,
         outs = [output],
+        srcs= srcs,
         building_description='building docker_image...',
         output_is_complete=True,
         visibility = visibility
