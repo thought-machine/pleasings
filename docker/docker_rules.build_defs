@@ -10,8 +10,15 @@ def docker_image(name:str, srcs:list|dict=None, deps:list=[], push_to_repository
     cmds = ['echo pwd is ',
             'pwd',
             'mkdir _tmp',
-            'cp $SRCS_RESOURCES _tmp',
-            'docker build -t %s _tmp > $OUT' % (tag)]
+            'cp $SRCS_DOCKERFILE _tmp',
+            'cp $SRCS_SRCS _tmp',
+            'cp $SRCS_RESOURCES _tmp'
+            ]
+    
+    for dep in deps:
+        cmds.append('cp -r $(locations %s) _tmp' % (dep))
+    cmds.append('docker build -t %s _tmp > $OUT' % (tag))    
+
     if push_to_repository:
         cmds.append('echo pushing to artifactory')
         cmds.append('docker tag %s artifacts.amfamlabs.com/docker/%s'% (tag, tag))
