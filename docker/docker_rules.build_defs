@@ -13,7 +13,7 @@ def docker_image(name:str, srcs=None, deps:list=[], push_to_repository=False, vi
             'cp $SRCS_RESOURCES _tmp',
             'docker build -t le:latest _tmp > %s' % (output)]
     if push_to_repository:
-        cms.append('echo pushing to artifactory')
+        cmds.append('echo pushing to artifactory')
     cmd = ' && '.join(cmds)
     build_rule(
         name = name,
