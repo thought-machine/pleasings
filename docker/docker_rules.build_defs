@@ -7,7 +7,7 @@ def docker_image(name:str, srcs:list|dict=None, deps:list=[], push_to_repository
     log.info("deps are")
     log.info(deps)
     output = "%s.log" %(tag)
-    cmds = ['echo %s' % (srcs),
+    cmds = ['echo %s' % (srcs.values()),
             'echo pwd is ',
             'pwd',
             'mkdir _tmp',
