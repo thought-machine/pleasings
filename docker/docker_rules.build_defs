@@ -1,13 +1,14 @@
  
  
-def docker_image(name:str, srcs:dict=None, deps:list=[], push_to_repository=False, visibility=None, out:str=None):
+def docker_image(name:str, srcs:list|dict=None, deps:list=[], push_to_repository=False, visibility=None, out:str=None):
     
     tag = "%s:latest"%(name)
     log.info("Building docker image for %s" % tag)
     log.info("deps are")
     log.info(deps)
     output = "%s.log" %(tag)
-    cmds = ['echo pwd is ',
+    cmds = ['echo %s' % (srcs),
+            'echo pwd is ',
             'pwd',
             'mkdir _tmp',
             'cp $SRCS_RESOURCES _tmp',
