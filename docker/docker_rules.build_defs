@@ -7,18 +7,18 @@ def docker_image(name:str, srcs:list|dict=None, deps:list=[], push_to_repository
     log.info("deps are")
     log.info(deps)
     output = "%s.log" %(tag)
-    cmds = ['echo %s' % (srcs.items()),
-            'echo pwd is ',
+    cmds = ['echo pwd is ',
             'pwd',
             'mkdir _tmp',
             'cp $SRCS_RESOURCES _tmp',
-            'docker build -t le:latest _tmp > %s' % (output)]
+            'docker build -t le:latest _tmp > $OUT']
     if push_to_repository:
         cmds.append('echo pushing to artifactory')
     cmd = ' && '.join(cmds)
     genrule(
         name = name,
         cmd = cmd,
+        outs = [output],
         building_description='building docker_image...',
         output_is_complete=True,
         visibility = visibility
