@@ -15,7 +15,7 @@ def docker_image(name:str, srcs=None, deps:list=[], push_to_repository=False, vi
     if push_to_repository:
         cmds.append('echo pushing to artifactory')
     cmd = ' && '.join(cmds)
-    build_rule(
+    genrule(
         name = name,
         cmd = cmd,
         building_description='building docker_image...',
