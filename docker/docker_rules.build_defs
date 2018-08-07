@@ -20,6 +20,7 @@ def docker_image(name:str, srcs:list|dict=None, deps:list=[], push_to_repository
     cmds.append('docker build -t %s _tmp > $OUT' % (tag))    
 
     if push_to_repository:
+        cmds.append('docker login artifacts.amfamlabs.com')
         cmds.append('echo pushing to artifactory')
         cmds.append('docker tag %s artifacts.amfamlabs.com/docker/%s'% (tag, tag))
         cmds.append('docker push artifacts.amfamlabs.com/docker/%s' % (tag))
