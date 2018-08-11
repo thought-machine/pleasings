@@ -1,0 +1,10 @@
+# BUILD file for UnitTest++ (github.com/unittest-cpp/unittest-cpp)
+
+os = "Win32" if CONFIG.OS == "windows" else "Posix"
+
+cc_library(
+    name = "unittest_cpp",
+    srcs = glob(["UnitTest++/*.cpp", f"UnitTest++/{os}/*.cpp"]),
+    hdrs = glob(["UnitTest++/*.h", f"UnitTest++/{os}/*.h"]),
+    visibility = ["PUBLIC"],
+)

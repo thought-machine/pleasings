@@ -7,5 +7,9 @@ cc_library(
 cc_test(
     name = "test",
     srcs = ["test.cc"],
-    deps = [":lib"],
+    deps = [
+        ":lib",
+        "//cc:unittest_main",
+    ],
+    write_main = False,
 )

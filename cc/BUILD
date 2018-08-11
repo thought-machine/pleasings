@@ -3,4 +3,5 @@ cc_library(
     srcs = ["unittest_main.cc"],
     linker_flags = ["-lUnitTest++"],
     visibility = ["PUBLIC"],
+    deps = ["@unittest_cpp//:unittest_cpp"],
 )
