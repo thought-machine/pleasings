@@ -1,120 +1,46 @@
-_YARN_CMD = ' && '.join([
-    'mv $SRCS_PACKAGE package.json',
-    'mv $SRCS_LOCK yarn.lock',
-    '$TOOL install --pure-lockfile --modules-folder . --no-progress --pure-lockfile '
-    # Need a mutex since we can potentially run several of these in parallel.
-    '--non-interactive --no-bin-links --mutex file:/tmp/plz_yarn.lock 1>&2',
-    'rm -f package.json yarn.lock',
-    'ls',
-])
+subinclude('//remote')
 
-_INSTALL_DEP = ''
+def yarn_library(name, version, out=None, hashes=None, test_only=False, patches=None,
+                 visibility=None, deps=None, _tag=''):
+    """Install a third-party library from the Yarn registry.
 
+    The typical workflow for this is to use Yarn to set up your package.json and yarn.lock,
+    then feed it through yarn_deps.py to generate the appropriate BUILD rules.
+    Right now deps have to be installed with --flat, this rule can't generate nested node_modules
+    directories.
 
-def yarn_library(name, version, outs=None, package_json='package.json', lock_file='yarn.lock',
-                 install_dep=None, hashes=None, test_only=False, visibility=None, deps=None):
-    """Install a third-party library using Yarn.
-
-    The typical workflow for this is to construct a package.json using `yarn add`, then
-    create a set of yarn_library rules for the top-level packages you added (i.e. the ones
-    in the `dependencies` section of package.json).
-
-    The scheme here is a little awkward since you can't tell yarn to install a single package.
-    Instead the only really efficient way for us to handle it is to generate one rule that
-    does `yarn install`, and have other top-level rules that just collect parts of its output.
+    It's not required to check in the Yarn files; you can regenerate them using
+    plz query print //third_party/js:all -f labels | grep yarn: | cut -c 6- | xargs yarn add
+    but of course you may prefer to check them in if you're following a normal Yarn workflow too.
 
     Args:
       name (str): Name of the rule.
       version (str): Version of the package to install.
-      outs (list): List of outputs for this package. Defaults to `[name]`.
-      package_json (str): package.json file describing what to install. Defaults to 'package.json'.
-      lock_file (str): yarn.lock file fixing dependency versions. Defaults to 'yarn.lock'.
-      install_dep (str): Build rule that runs `yarn install`. If not given then one is generated.
+      out (str): Output name for this package. Defaults to name.
       hashes (list): List of hashes that outputs must match.
       test_only (bool): If True, can only be depended on by test rules.
+      patches (list): List of patch files to apply to the output library.
       visibility (list): Visibility declaration for this rule.
       deps (list): Any other dependencies of the rule.
     """
-    # This is a rather inelegant approach to generating a rule once only per package.
-    # In some sense it would be nice to force a bit more purity, but this doesn't actually
-    # make things worse than other unwise things one could do with globals.
-    global _INSTALL_DEP
-
-    outs = outs or [name]
-    install_dep = install_dep or _INSTALL_DEP
-    if not install_dep:
-        # Note that most arguments are not inherited here. If you want to customise them,
-        # you should define it yourself and pass `install_dep` to yarn_library.
-        install_dep = _INSTALL_DEP = yarn_install(
-            name = '_yarn_install',
-            package_json = package_json,
-            lock_file = lock_file,
-        )
-
-    return filegroup(
-        name = name,
-        srcs = ['%s|%s' % (install_dep, out) for out in outs],
-        labels = ['yarn:%s@%s' % (name, version)],
-        requires = ['js'],
-        hashes = hashes,
-        visibility = visibility,
-        test_only = test_only,
-        deps = deps,
-        output_is_complete = False,
-    )
-
-
-def yarn_install(name, package_json='package.json', lock_file='yarn.lock',
-                 hashes=None, test_only=False, visibility=None, deps=None):
-    """Install a set of third-party libraries using Yarn.
-
-    This rule generates all the outputs; specific ones are accessed using `yarn_library`.
-    It's often not necessary to call this directly; `yarn_library` will create it if needed.
-
-    Args:
-      name (str): Name of the rule.
-      package_json (str): package.json file describing what to install. Defaults to 'package.json'.
-      lock_file (str): yarn.lock file fixing dependency versions. Defaults to 'yarn.lock'.
-      hashes (list): List of hashes that outputs must match.
-      test_only (bool): If True, can only be depended on by test rules.
-      visibility (list): Visibility declaration for this rule.
-      deps (list): Any other dependencies of the rule.
-    """
+    url = 'https://registry.yarnpkg.com/%s/-/%s-%s.tgz' % (name, name, version)
+    cmd = 'echo "Fetching %s..." && curl -fsSL %s | tar -xz --no-same-owner --no-same-permissions && mv package $OUT' % (url, url)
+    if patches:
+        cmd += ' && for SRC in $SRCS; do patch -p0 -l -i $SRC; done'
     return build_rule(
         name = name,
-        srcs = {
-            'package': [package_json],
-            'lock': [lock_file],
-        },
-        cmd = _YARN_CMD,
-        requires = ['js'],
+        tag = _tag,
+        cmd = cmd,
+        srcs = patches,
+        outs = [out or name],
         hashes = hashes,
-        visibility = visibility,
-        tools = [CONFIG.get('YARN_TOOL', 'yarn')],
-        # Post-build function is needed to detect all the outputs; since they are defined
-        # by the package.json / yarn.lock combination, we can't possibly know them at parse time.
-        post_build = lambda name, output: [add_out(name, line, line) for line in output],
         test_only = test_only,
-        deps = deps,
-    )
-
-
-def yarn_js(name, version, hash, visibility=None):
-    """Convenience rule to fetch Yarn releases.
-
-    It's really just a very thin wrapper around remote_file that knows where
-    to get Yarn from.
-
-    Args:
-      name: Name of the rule.
-      version: Version of Yarn to fetch.
-      hash: Hash of the downloaded file.
-      visibility: Visibility of this rule.
-    """
-    remote_file(
-        name = name,
-        binary = True,
-        hashes = [hash],
-        url = 'https://github.com/yarnpkg/yarn/releases/download/v%s/yarn-%s.js' % (version, version),
+        building_description = 'Downloading...',
+        output_is_complete = False,
         visibility = visibility,
+        exported_deps = deps,
+        labels = ['yarn:%s@%s' % (name, version)],
     )
+
+
+CONFIG.setdefault('NODE_TOOL', 'node')

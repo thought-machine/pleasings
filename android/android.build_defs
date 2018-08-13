@@ -1,22 +1,47 @@
 """A set of build rules for Android which can produce .apks and .aars.
 
+There are a number of configurable options in your .plzconfig:
+
+[buildconfig]
+; Where your Android tools are installed; aka ANDROID_HOME
+android-home = /opt/android
+; The version of the Android build tools to use.
+android-tools-version = 23.0.2
+; A rule for the android API jar, which is a dependency of many things.
+android-jar = //third_party/android:android
+; Manifest merger tool. Uses com.android.tools.build:manifest-merger.
+android-manifest-merger = //third_party/android:manifest_merger
+; Location of the Android keystore to use for signing.
+; If this isn't passed the app won't be signed; set it to the empty string
+; if that's what you want.
+android-keystore = /etc/android/debug.keystore
+; Password for the keystore.
+android-keystore-password = android
+; Alias for the key name in the keystore.
+android-keystore-alias = androiddebugkey
+
 TODOs:
  - AIDL
  - Proguard
  - general ergonomics
+ - Redo the tools / config variable setup which is a little messy
+ - Write android_maven_jars as an equivalent to maven_jars
+ - BuildConfig.java
  - No doubt we are missing lots of other features
 """
 
+check_config('ANDROID_HOME', example='/opt/android', rule='Android')
 
-def android_resource(name, package, manifest, res, resources_root=None, assets=None,
+
+def android_resource(name, manifest, res, package='', resources_root=None, assets=None,
                      deps=None, visibility=None):
     """Defines an Android resource target built using aapt.
 
     Args:
       name (str): Name of the rule.
-      package (str): Java package for the generated R.java file.
       manifest (str): Either a file or a build target containing the AndroidManifest.xml file.
       res (str | list): Resources , typically a res/ directory but can be multiple things.
+      package (str): Java package for the generated R.java file.
       resources_root (str): Root directory for resources, as java_library.
       assets (str): Directory containing assets. Often not used.
       deps (list): Extra dependencies for this rule.
@@ -68,11 +93,16 @@ def android_resource(name, package, manifest, res, resources_root=None, assets=N
         deps = deps,
         out = 'R.txt',
     )
-    filegroup(
+    java_rule = android_library(
+        name = '_%s#java' % name,
+        srcs = [java_src_rule],
+        deps = deps,
+    )
+    return filegroup(
         name = name,
         visibility = visibility,
         provides = {
-            'java': java_src_rule,
+            'java': java_rule,
             'res_src': ':_%s#srcs' % name,
             'manifest': ':_%s#manifest' % name,
             'res': res_rule,
@@ -82,7 +112,7 @@ def android_resource(name, package, manifest, res, resources_root=None, assets=N
 
 
 def android_library(name, srcs=None, src_dir=None, resources=None, resources_root=None, deps=None,
-                    exported_deps=None, visibility=None, test_only=False):
+                    exported_deps=None, visibility=None, test_only=False, _provides=None):
     """Wrapper around java_library which is slightly more specific to Android code. Also dexes.
 
     Args:
@@ -104,6 +134,7 @@ def android_library(name, srcs=None, src_dir=None, resources=None, resources_roo
     deps = deps or []
     exported_deps = exported_deps or []
     java_rule = '_%s#java' % name
+    _provides = _provides or {}
     java_library(
         name = java_rule,
         srcs = srcs,
@@ -126,12 +157,11 @@ def android_library(name, srcs=None, src_dir=None, resources=None, resources_roo
         visibility = visibility,
         deps = deps + exported_deps,
     )
+    _provides['dex'] = dex_rule
     return filegroup(
         name = name,
         srcs = [':' + java_rule],
-        provides = {
-            'dex': dex_rule,
-        },
+        provides = _provides,
         deps = [dex_rule],
         test_only = test_only,
         visibility = visibility,
@@ -139,7 +169,7 @@ def android_library(name, srcs=None, src_dir=None, resources=None, resources_roo
 
 
 def android_binary(name, resources, assets=None, out=None, arch=None, deps=None, visibility=None,
-                   labels=None, merge_manifests=False, resource_deps=None):
+                   labels=None, merge_manifests=False, resource_deps=None, native_libs=None):
     """Creates an APK from a bunch of android_library rules.
 
     Args:
@@ -157,6 +187,8 @@ def android_binary(name, resources, assets=None, out=None, arch=None, deps=None,
       merge_manifests (bool): True to merge manifests of all dependencies, false to just use
                               the existing one.
       resource_deps (list): Resource dependencies when running aapt.
+      native_libs (list): Native libraries to add. See native.build_defs for more information;
+                          typically these would be ndk_shared_object rules.
     """
     dex_rule = build_rule(
         name = name,
@@ -214,28 +246,49 @@ def android_binary(name, resources, assets=None, out=None, arch=None, deps=None,
         tag = 'unsigned',
         srcs = {
             'dex': [dex_rule],
-            'other': [native_rule, aapt_rule],
+            'other': [native_rule, aapt_rule] + (native_libs or []),
         },
         outs = ['unsigned_' + out],
-        cmd = 'mv $SRCS_DEX classes.dex && $TOOL -i . -o $OUTS --include_other --strict',
+        cmd = 'mv $SRCS_DEX classes.dex && $TOOL -a 4 -i . -o $OUTS --include_other --strict',
         requires = ['res'],
         tools = [CONFIG.JARCAT_TOOL],
     )
-    zipalign_cmd = '%s 4 $SRC $OUT' % _android_tool('zipalign_tool')
-    jarsigner_cmd = 'jarsigner -verbose -keystore ~/.android/debug.keystore -storepass android -keypass android $SRCS androiddebugkey'
 
-    build_rule(
+    secrets = []
+    keystore = CONFIG.get('ANDROID_KEYSTORE')
+    cmd = 'cp $SRC $OUT'
+    if keystore is None:
+        log.warning("android-keystore not specified, will create unsigned .apks. "
+                    "Set it to an empty string if this is the desired functionality.")
+    elif keystore:
+        password = CONFIG.get('ANDROID_KEYSTORE_PASSWORD')
+        if password is None:
+            log.warning("android-keystore-password not specified, encrypted keystores won't work. "
+                        "Set it to an empty string if this is the desired functionality.")
+            password = ''
+        alias = CONFIG.get('ANDROID_KEYSTORE_ALIAS', '')
+        if not alias:
+            raise ParseError('You must specify android-keystore-alias in your .plzconfig')
+        cmd = ' && '.join([
+            'cp $SRCS tmp.apk',
+            '$TOOLS_SIGNER -verbose -keystore $SECRETS -storepass "%s" tmp.apk %s' % (password, alias),
+            '$TOOLS_JARCAT -a 4 -i tmp.apk -s ".apk" -o $OUT',
+        ])
+        secrets = [keystore]
+
+    return build_rule(
         name = name,
         srcs = [unsigned_rule],
         outs = [out],
-        cmd = {
-            'opt': zipalign_cmd,
-            'dbg': jarsigner_cmd + ' && '+ zipalign_cmd,
-            'sign': jarsigner_cmd + ' && '+ zipalign_cmd,
-        },
+        cmd = cmd,
         deps = deps,
+        secrets = secrets,
         visibility = visibility,
         labels = (labels or []) + ['apk'],
+        tools = {
+            'signer': ['jarsigner' if keystore else None],
+            'jarcat': [CONFIG.JARCAT_TOOL],
+        },
     )
 
 
@@ -304,6 +357,7 @@ def android_maven_jar(name, id=None, src=None, repository=None, hash=None, deps=
                 src = ':_%s#mvn' % name,
             )
             deps.append(res_rule)
+            provides['res_src'] = res_rule
     elif src:
         # Extract the classes.jar
         classes_rule = build_rule(
@@ -336,6 +390,25 @@ def android_maven_jar(name, id=None, src=None, repository=None, hash=None, deps=
         visibility = visibility,
         output_is_complete = False,
         test_only = test_only,
+    )
+
+
+def android_jar(name, platform, visibility=None, deps=None):
+    """Fetches an Android platform API jar off the system.
+
+    You may need to set android-home in your .plzconfig for this to locate it correctly.
+
+    Args:
+      name (str): Name of the rule.
+      platform (str): Name of the platform version (e.g. android-23).
+      visibility (list): Visibility declaration.
+      deps (list): Extra dependencies.
+    """
+    return system_library(
+        name = name,
+        srcs = [join_path(CONFIG.ANDROID_HOME, 'platforms', platform, 'android.jar')],
+        visibility = visibility,
+        deps = deps,
     )
 
 
@@ -376,6 +449,7 @@ def android_aar_resources(name, src, visibility=None, resource_deps=None, deps=N
         src_dir = src_rule,
         visibility = visibility,
         deps = deps,
+        _provides = {'res_src': res_rule},
     )
 
 
@@ -434,9 +508,9 @@ def android_aapt(name, manifest, out=None, tag=None, package=None, res=None,
         aapt_tool,
         'package',
         '-I $(location %s)' % CONFIG.ANDROID_JAR,
-        '-M $(location %s)' % manifest,
-        '-S $(location %s)' % res if res else '',
-        '-A $(location %s)' % assets if assets else '',
+        '-M $SRCS_MANIFEST',
+        '`find . -type d -name res -printf " -S %p" | sort`',
+        '-A $SRCS_ASSETS' if assets else '',
         '--custom-package %s' % package if package else '',
         '--output-text-symbols .',
         '-J .',
@@ -445,30 +519,122 @@ def android_aapt(name, manifest, out=None, tag=None, package=None, res=None,
         '--auto-add-overlay',
     ])
 
-    if deps:
-        dep_cmd = ' && '.join(
-            'export X=$(location %s) && mkdir ${X}_expl && unzip -qd ${X}_expl $X' % dep
-            for dep in deps
-        )
-        aapt_ext = ' '.join('-S $(location %s)_expl/res' % dep for dep in deps)
-        cmd = '%s && %s %s' % (dep_cmd, cmd, aapt_ext)
-
     if out and not apk and out.endswith('R.java'):
         cmd += ' && mv R.java $OUT'
 
     return build_rule(
         name = name,
         tag = tag,
-        srcs = [res, assets, manifest],
+        srcs = {
+            'res': [res],
+            'assets': [assets],
+            'manifest': [manifest],
+        },
         outs = [out or 'R.java'],
         cmd = cmd,
-        tools = [CONFIG.ANDROID_JAR, aapt_tool],
+        tools = {
+            'jar': [CONFIG.ANDROID_JAR],
+            'aapt': [aapt_tool],
+            'jarcat': [CONFIG.JARCAT_TOOL],
+        },
         visibility = visibility,
         output_is_complete = True,
         building_description = 'Running aapt...',
         deps = deps,
         requires = ['res_src'],
     )
+
+
+def android_project(name, out=None, srcs=None, package='',
+                    manifest='src/main/AndroidManifest.xml',
+                    res='src/main/res', resources_root='src/main',
+                    library=False, assets=None, resource_deps=None, native_libs=None,
+                    deps=None, visibility=None):
+    """Defines a high-level rule for building an entire Android project.
+
+    This typically sits in the directory alongside src/.
+
+    This builds all the Java sources in one go so doesn't achieve the best
+    results for incrementality or code reuse, but it's a simple way of getting
+    up and going. If you want more control, it's quite obviously just a wrapper
+    around android_resource, android_library and android_binary which are not
+    too hard to break out separately.
+
+    Args:
+      name (str): Name of the rule.
+      out (str): Name of the output .apk file.
+      srcs (list): Java source files to compile. Defaults to everything under src/main/java.
+      package (str): Custom package override for the generated aapt resources. Usually not necessary.
+      manifest (str): The AndroidManifest.xml file. Defaults to src/main/AndroidManifest.xml
+      res (str): Resources for the project. Defaults to src/main/res.
+      resources_root (str): Root directory for the resources. Defaults to src/main, not often changed.
+      assets (str): Directory containing static assets. Default is not to add any, if you do
+                    you'd set it to e.g. src/main/assets.
+      library (bool): If True, this project is set up only as a library (i.e. no APK will be produced).
+      resource_deps (list): Dependencies for resource compile.
+      native_libs (list) Native libraries to include. See native.build_defs for more information;
+                         typically these would be ndk_shared_object rules.
+      deps (list): Any other dependencies (typically code dependencies)
+      visibility (list): Visibility specification.
+    """
+    deps = deps or []
+    srcs = srcs or glob(['src/main/java/**/*.java'])
+
+    resource_rule = android_resource(
+        name = '_%s#res' % name,
+        manifest = manifest,
+        package = package,
+        assets = assets,
+        res = res,
+        resources_root = resources_root,
+        deps = resource_deps,
+    )
+
+    library_rule = android_library(
+        name = '_%s#lib' % name,
+        srcs = srcs,
+        deps = [resource_rule] + deps,
+    )
+
+    if library:
+        return filegroup(
+            name = name,
+            srcs = [library_rule, resource_rule],
+            provides = {
+                'dex': library_rule,
+                'java': library_rule,
+                'res_src': resource_rule,
+                'manifest': resource_rule,
+                'res': resource_rule,
+                'r': resource_rule,
+            },
+            visibility = visibility,
+        )
+
+    apk_rule = android_binary(
+        name = name,
+        out = out,
+        resource_deps = resource_deps,
+        resources = resource_rule,
+        native_libs = native_libs,
+        deps = [library_rule] + deps,
+        visibility = visibility,
+    )
+
+    # Generate a virtual rule that will install the final .apk on device via plz run.
+    # When run in debug mode, also attaches to the device using logcat.
+    # N.B. only works when run from the project root.
+    install_cmd = 'adb install -r $(out_location %s)' % apk_rule
+    sh_cmd(
+        name = name + '_install',
+        cmd = {
+            'opt': 'exec ' + install_cmd,
+            'dbg': install_cmd + ' && adb logcat -c && adb logcat',
+        },
+        deps = [apk_rule],
+    )
+
+    return apk_rule
 
 
 def _merge_manifests(name, resources, tag='manifest', deps=None):
@@ -529,3 +695,8 @@ def _android_tool(tool_name):
         return join_path(build_tools_dir, 'zipalign')
     else:
         raise KeyError('Unknown tool: %s' % tool_name)
+
+
+CONFIG.setdefault('ANDROID_HOME', '/opt/android')
+CONFIG.setdefault('ANDROID_TOOLS_VERSION', '23.0.2')
+CONFIG.setdefault('ANDROID_JAR', '//third_party/android')

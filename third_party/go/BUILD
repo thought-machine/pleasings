@@ -21,13 +21,12 @@ go_get(
     name = 'grpc',
     exported_deps = [':context'],
     get = 'google.golang.org/grpc',
-    revision = 'v1.5.0',
     deps = [':protobuf'],
 )
 
 go_get(
     name = 'protobuf',
-    get = 'github.com/golang/protobuf/proto',
+    get = 'github.com/golang/protobuf/ptypes',
     install = ['github.com/golang/protobuf/protoc-gen-go/descriptor'],
 )
 

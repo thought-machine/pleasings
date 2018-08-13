@@ -1,4 +1,4 @@
-subinclude('//grpc_gateway')
+subinclude('//proto:grpc_gateway')
 package(proto_languages = [
     'go',
     'py',

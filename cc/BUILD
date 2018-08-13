@@ -5,3 +5,9 @@ cc_library(
     visibility = ["PUBLIC"],
     deps = ["@unittest_cpp//:unittest_cpp"],
 )
+
+filegroup(
+    name = 'thinlto',
+    srcs = ['thinlto.build_defs'],
+    visibility = ['PUBLIC'],
+)

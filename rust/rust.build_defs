@@ -8,10 +8,7 @@ and set that in .plzconfig for other rules to use. The //rust/test
 and //third_party/rust directories in this repo contain examples of
 how one might go about doing that.
 """
-# N.B. Using this remote subinclude format allows this file to be used anywhere.
-#      If you're vendorising this, you may prefer to vendorise remote.build_defs
-#      as well and change this to a local subinclude.
-subinclude('https://raw.githubusercontent.com/thought-machine/pleasings/master/remote/remote.build_defs')
+subinclude('//remote')
 
 
 def rust_library(name, srcs, deps=None, visibility=None):
@@ -101,7 +98,7 @@ def _rustc_cmds(deps=None, crate_type=None, test=False):
     if CONFIG.RUST_STDLIB or CONFIG.RUST_TOOLCHAIN:
         cmd.append('-L $TOOLS_STDLIB -L $TOOLS_STDLIB/../../..')
     if deps:
-        cmd.extend('-L $(dir %s)' % dep for dep in deps)
+        cmd.extend(['-L $(dir %s)' % dep for dep in deps])
     cmd = ' '.join(cmd)
     return {
         'dbg': cmd + ' -g',

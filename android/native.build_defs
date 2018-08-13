@@ -1,0 +1,140 @@
+"""Contains rules for building native Android components using the NDK.
+
+Still a bit experimental.
+"""
+
+# The NDK toolchains don't seem to follow a very consistent naming scheme.
+# This maps the shorter arch name to longer ones (sometimes triples, sometimes not).
+_NDK_TOOLCHAIN_ARCHS = {
+    'arm': 'arm-linux-androideabi',
+    'arm64': 'aarch64-linux-android',
+    'mips': 'mipsel-linux-android',
+    'mips64': 'mips64el-linux-android',
+    'x86': 'x86',
+    'x86_64': 'x86_64',
+}
+
+_NDK_TOOLCHAIN_ABIS = {
+    'arm': 'armeabi-v7a',  # There is also armeabi, but does anyone target that these days?
+    'arm64': 'arm64-v8a',
+    'mips': 'mips',
+    'mip64': 'mip64',
+    'x86': 'x86',
+    'x86_64': 'x86_64',
+}
+
+_NDK_STL_LIB_NAMES = {
+    'gnu-libstdc++': 'libgnustl_static.a',
+    'llvm-libc++': 'libc++_static.a',  # Might need libunwind etc as well?
+    'stlport': 'libstlport_static.a',
+}
+
+
+def ndk_toolchain(arch, version, platform, root=None, stl='gnu-libstdc++',
+                  cflags=None):
+    """Sets up the current package to use a particular NDK version.
+
+    This is a shorthand for calling package() with a bunch of parameters;
+    it takes care of finding the appropriate tools and setting all the different
+    config params.
+
+    Note that this must be called at the top of the BUILD file, before defining
+    any rules such as ndk_library etc.
+    It will globally affect the package so cc_library rules etc will also
+    collect some of these values.
+
+    Args:
+      arch (str): Architecture to target, e.g. x86_64, arm, etc.
+      version (str): Version of the NDK to use, e.g. 4.9
+      platform (str): Android platform to target, e.g. android-26.
+      root (str): Root of the NDK. Defaults to /ndk-bundle under ANDROID_HOME as
+                  defined elsewhere in the config.
+      stl (str): Name of the C++ STL to use. Defaults to gnu-libstdc++ but there
+                 are several other options installed (llvm-libc++, stlport, etc).
+                 None other than the default have received any testing yet, so consider
+                 this option somewhat experimental.
+      cflags (list): Additional compiler flags. These are appended to the existing defaults.
+    """
+    check_config('ANDROID_HOME', example='/opt/android', rule='Android')
+    if arch not in _NDK_TOOLCHAIN_ARCHS:
+        raise ParseError('Unknown architecture %s. Must be one of %s' %
+                         (arch, ', '.join(_NDK_TOOLCHAIN_ARCHS)))
+
+    toolchain_arch = _NDK_TOOLCHAIN_ARCHS[arch]
+    abi = _NDK_TOOLCHAIN_ABIS[arch]
+    root = root or join_path(CONFIG.ANDROID_HOME, 'ndk-bundle')
+    toolchain_root = join_path(root, 'toolchains', toolchain_arch + '-' + version,
+                               'prebuilt/%s-%s' % (CONFIG.OS, CONFIG.ARCH.replace('amd64', 'x86_64')), 'bin')
+    platform_root = join_path(root, 'platforms', platform, 'arch-' + arch)
+    stl_root = join_path(root, 'sources/cxx-stl', stl, version)
+    cflags = ' ' + ' '.join(cflags or [])
+    cflags += ' -isystem%s/usr/include -isystem%s/sysroot/usr/include -DANDROID' % (platform_root, root)
+    cppflags = cflags + ' -isystem%s/include -isystem%s/libs/%s/include' % (stl_root, stl_root, abi)
+    ldflags = ' -z,noexecstack -Wl,-z,now -Wl,-z,combreloc -Wl,--no-undefined -Wl,--exclude-libs,libgcc.a -Wl,-s '
+    ldflags += '-L%s/usr/lib -B %s/usr/lib -llog -landroid -lm ' % (platform_root, platform_root)
+    ldflags += '%s/libs/%s/%s' % (stl_root, abi, _NDK_STL_LIB_NAMES[stl])
+    package(
+        cc_tool = join_path(toolchain_root, toolchain_arch + '-gcc'),
+        cpp_tool = join_path(toolchain_root, toolchain_arch + '-g++'),
+        ar_tool = join_path(toolchain_root, toolchain_arch + '-ar'),
+        ld_tool = join_path(toolchain_root, toolchain_arch + '-ld'),
+        asm_tool = join_path(toolchain_root, toolchain_arch + '-as'),
+        default_dbg_cflags = CONFIG.DEFAULT_DBG_CFLAGS + cflags,
+        default_opt_cflags = CONFIG.DEFAULT_OPT_CFLAGS + cflags,
+        default_dbg_cppflags = CONFIG.DEFAULT_DBG_CPPFLAGS + cppflags,
+        default_opt_cppflags = CONFIG.DEFAULT_OPT_CPPFLAGS + cppflags,
+        default_ldflags = (CONFIG.DEFAULT_LDFLAGS + ldflags).strip(),
+    )
+    CONFIG['NDK_ARCH'] = arch
+    CONFIG['NDK_ABI'] = abi
+
+
+def ndk_shared_object(name, srcs=None, hdrs=None, out='', compiler_flags=None, linker_flags=None,
+                      includes=None, test_only=False, deps=None, visibility=None):
+    """Generates a C++ shared object for Android.
+
+    It's precompressed into a .jar file for usage by other rules.
+
+    Args:
+      name (str): Name of the rule
+      srcs (list): C or C++ source files to compile.
+      hdrs (list): Header files. These will be made available to dependent rules, so the distinction
+                   between srcs and hdrs is important.
+      out (str): Name of the output .so. Defaults to name + .so.
+      compiler_flags (list): Flags to pass to the compiler.
+      linker_flags (list): Flags to pass to the linker.
+      test_only (bool): If True, is only available to other test rules.
+      includes (list): Include directories to be added to the compiler's lookup path.
+      test_only (bool): If True, is only available to other test rules.w
+      deps (list): Dependent rules.
+      visibility (list): Visibility declaration for this rule.
+    """
+    so_rule = cc_shared_object(
+        name = '_%s#so' % name,
+        srcs = srcs,
+        hdrs = hdrs,
+        out = out or name + '.so',
+        compiler_flags = compiler_flags,
+        linker_flags = linker_flags,
+        includes = includes,
+        test_only = test_only,
+        deps = deps,
+    )
+    return genrule(
+        name = name,
+        srcs = [so_rule],
+        outs = [name + '.jar'],
+        tools = [CONFIG.JARCAT_TOOL],
+        cmd = [
+            'mkdir -p lib/' + CONFIG.NDK_ABI,
+            'mv $SRCS lib/' + CONFIG.NDK_ABI,
+            '$TOOL -d -i lib'
+        ],
+        visibility = visibility,
+    )
+
+
+# Various aliases.
+ndk_library = cc_library
+ndk_cc_library = cc_library
+ndk_c_library = c_library

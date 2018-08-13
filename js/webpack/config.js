@@ -1,73 +1,85 @@
+const fs = require('fs');
 const path = require('path');
-const process = require('process');
 const webpack = require('webpack');
-const ClosureCompilerPlugin = require('webpack-closure-compiler');
+const requireDynamic = require('./require_dynamic.js');
+const BabelPresetES2015 = require('babel-preset-es2015');
+const BabelPresetReact = require('babel-preset-react');
 
-// Map plz's standard build config names to something meaningful to webpack.
-const buildConfig = process.env.BUILD_CONFIG;
-const nodeEnv = buildConfig === 'opt' ? 'production' : 'development';
+module.exports = function(opts) {
+    const library = opts.outManifest ? path.basename(opts.out, '.js') : undefined;
 
-let plugins = [
-    new webpack.DefinePlugin({
-	'process.env': {
-	    NODE_ENV: JSON.stringify(nodeEnv)
-	}
-    }),
-    new ClosureCompilerPlugin({
-        compiler: {
-            language_in: 'ECMASCRIPT6',
-            language_out: 'ECMASCRIPT5',
-        },
-        concurrency: 3,
-    })
-]
+    return {
+	entry: opts.srcs.map(src => './' + src),
+	output: {
+	    path: opts.tmpDir,
+            filename: path.basename(opts.out),
+	    library: library,
+	},
+	module: {
+	    rules: [{
+		test: /\.json$/,
+		use: [{ loader: 'json-loader' }],
+	    }, {
+		test: /\.js.json.gz$/,
+		use: [{
+		    loader: 'plz-loader',
+		    options: {
+			srcs: opts.srcs,
+			pkg: opts.pkg + '/',
+			tmpDir: opts.tmpDir + '/',
+		    },
+		}],
+	    }, {
+		test: /\.(js|jsx)$/,
+		use: [{
+		    loader: 'plz-loader',
+		    options: {
+			srcs: opts.srcs,
+			pkg: opts.pkg + '/',
+			tmpDir: opts.tmpDir + '/',
+		    },
+		}, {
+		    loader: 'babel-loader',
+		    options: {
+			babelrc: false,
+			presets: [
+			    BabelPresetES2015,
+			    BabelPresetReact,
+			],
+		    },
+		}],
+	    }]
+	},
+	node: {
+	    process: false,
+	    Buffer: false,
+	},
+	resolveLoader: {
+	    plugins: [requireDynamic.Resolver],
+	},
+	resolve: {
+	    extensions: ['.js', '.js.json.gz', '.json'],
+	    modules: [
+		opts.tmpDir,
+		path.join(opts.tmpDir, 'third_party/js'),
+	    ],
+	},
+	plugins: [
+	    new webpack.DefinePlugin({
+		'process.env': {
+		    // Map plz's standard build config names to something meaningful to webpack.
+		    NODE_ENV: JSON.stringify(opts.buildConfig === 'opt' ? 'production' : 'development')
+		}
+	    }),
+	    ...opts.srcsDll.map((dll, i) => new webpack.DllReferencePlugin({
+		name: path.basename(dll, '.js'),
+		manifest: JSON.parse(fs.readFileSync(opts.srcsManifest[i], 'utf8')),
+	    })),
+	    ...(opts.outManifest ? [new webpack.DllPlugin({
+		name: library,
+		path: path.join(opts.tmpDir, opts.outManifest)
+	    })] : []),
+	]
+    };
 
-let entry = process.env.SRCS_JS.split(' ').map(src => './' + src);
-let library = undefined;
-if (process.env.OUTS_MANIFEST) {
-    // We are building a vendor bundle,
-    const name = path.basename(process.env.OUTS_JS, '.js');
-    entry = {[name]: process.env.SRCS_JS.split(' ')};
-    library = name;
-    plugins.push(new webpack.DllPlugin({
-        name: name,
-        path: path.join(process.env.TMP_DIR, process.env.OUTS_MANIFEST)
-    }));
-} else if (process.env.SRCS_DLL) {
-    // We have some vendor DLLs to link to.
-    const dlls = process.env.SRCS_DLL.split(' ');
-    const manifests = process.env.SRCS_MANIFEST.split(' ');
-    plugins = plugins.concat(dlls.map((dll, i) => new webpack.DllReferencePlugin({
-	name: path.basename(dll, '.js'),
-	manifest: require(manifests[i]),
-    })));
-}
-
-module.exports = {
-    entry: entry,
-    output: {
-	path: process.env.TMP_DIR,
-        filename: path.basename(process.env.OUTS_JS),
-	library: library,
-    },
-    module: {
-	rules: [{
-	    test: /\.(js|jsx)$/,
-      loader: 'babel-loader',
-      query: {
-        presets: [
-          'es2015',
-          'react'
-        ],
-        plugins: []
-      },
-	}]
-    },
-    resolve: {
-	modules: process.env.NODE_PATH.split(':'),
-    },
-    resolveLoader: {
-	modules: process.env.NODE_PATH.split(':'),
-    },
-    plugins: plugins,
 };

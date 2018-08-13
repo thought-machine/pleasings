@@ -3,10 +3,6 @@ package(default_visibility = ['PUBLIC'])
 maven_jars(
     name = 'error_prone',
     id = 'com.google.errorprone:error_prone_core:2.0.14',
-    exclude = [
-        'guava',
-        'error_prone_annotations',
-    ],
 )
 
 # For the Error Prone compiler we reuse most of the existing worker infrastructure.
