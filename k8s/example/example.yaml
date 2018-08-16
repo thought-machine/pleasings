@@ -1,0 +1,28 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: example
+  labels:
+    app: example
+    project: please
+spec:
+  revisionHistoryLimit: 5
+  template:
+    metadata:
+      labels:
+        app: example
+        project: please
+    spec:
+      containers:
+      - name: server
+        image: //docker/example:image
+        resources:
+          requests:
+            memory: 100Mi
+            cpu: 100m
+          limits:
+            memory: 200Mi
+            cpu: 0.4
+        ports:
+        - containerPort: 8000
+          name: http
