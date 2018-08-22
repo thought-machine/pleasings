@@ -3,11 +3,11 @@ cc_library(
     srcs = ["unittest_main.cc"],
     linker_flags = ["-lUnitTest++"],
     visibility = ["PUBLIC"],
-    deps = ["@unittest_cpp//:unittest_cpp"],
+    deps = ["@unittest_cpp"],
 )
 
 filegroup(
-    name = 'thinlto',
-    srcs = ['thinlto.build_defs'],
-    visibility = ['PUBLIC'],
+    name = "thinlto",
+    srcs = ["thinlto.build_defs"],
+    visibility = ["PUBLIC"],
 )
