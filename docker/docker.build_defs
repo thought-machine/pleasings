@@ -1,0 +1,117 @@
+def docker_build(name, tag="latest", dockerfile="Dockerfile", srcs=[], visibility=None, hosts=[], build_args={}, cache=[], cgroup_parent="",compress=None, cpu_period=None, cpu_quota=None, cpu_shares=None, cpuset_cpus=None, cpuset_mems=None, disable_content_trust=None, force_rm=None, iid_file="", isolation="",label="",memory=None,memory_swap=None,network=None,no_cache=None,pull=None,quiet=None,rm=None,security_opts={},shm_size=None,target="",ulimit={}):
+    
+    srcs.append(dockerfile)
+
+    # Basic Docker build command with minimal parameters
+    cmd = 'docker build -t %s:%s -f %s' % (name,tag,dockerfile)
+
+    # Optional Docker build arguments
+    if build_args:
+        cmd = _add_args(cmd,"build-arg",build_args)
+    
+    if hosts:
+        cmd = _add_args(cmd,"add-host",hosts)
+
+    if cache:
+        cmd = _add_args(cmd,"cache-from",cache)
+
+    if cgroup_parent:
+        cmd = _add_args(cmd,"cgroup-parent",cgroup_parent)
+
+    if not compress == None:
+        cmd = _add_args(cmd,"compress",compress)
+
+    if cpu_period:
+        cmd = _add_args(cmd,"cpu-period",cpu_period)
+
+    if cpu_quota:
+        cmd = _add_args(cmd,"cpu-quota",cpu_quota)
+
+    if cpu_shares:
+        cmd = _add_args(cmd,"cpu-shares",cpu_shares)
+
+    if cpuset_cpus:
+        cmd = _add_args(cmd,"cpuset-cpus",cpuset_cpus)
+
+    if cpuset_mems:
+        cmd = _add_args(cmd,"cpuset-mems",cpuset_mems)
+
+    if not disable_content_trust == None:
+        cmd = _add_args(cmd,"disable-content-trust",disable_content_trust)
+
+    if not force_rm == None:
+        cmd = _add_args(cmd,"force-rm",force_rm)
+
+    if iid_file:
+        cmd = _add_args(cmd,"iid-file",iid_file)
+
+    if isolation:
+        cmd = _add_args(cmd,"isolation",isolation)
+
+    if label:
+        cmd = _add_args(cmd,"label",label)
+
+    if memory:
+        cmd = _add_args(cmd,"memory",memory)
+
+    if memory_swap:
+        cmd = _add_args(cmd,"memory-swap",memory_swap)
+
+    if network:
+        cmd = _add_args(cmd,"network",network)
+
+    if not no_cache == None:
+        cmd = _add_args(cmd,"no-cache",no_cache)
+
+    if not pull == None:
+        cmd = _add_args(cmd,"pull",pull)
+
+    if not quiet == None:
+        cmd = _add_args(cmd,"quiet",quiet)
+
+    if not rm == None:
+        cmd = _add_args(cmd,"rm", rm)
+
+    if security_opts:
+        cmd = _add_args(cmd,"security_opts",security-opts)
+
+    if shm_size:
+        cmd = _add_args(cmd,"shm-size",shm_size)
+
+    if target:
+        cmd = _add_args(cmd,"target",target)
+
+    if ulimit:
+        cmd = _add_args(cmd,"ulimit",ulimit)
+
+
+    # Set the build context to the current directory (should be the tmp directory)
+    cmd += " ."
+    build_rule(
+        name = name,
+        srcs = srcs,
+        visibility = visibility,
+        outs = None,
+        cmd = cmd
+    )
+
+def _add_args(cmd, arg, value):
+    if isinstance(value,list):
+        for item in value:
+            cmd += ' --%s="%s"' % (arg,item)
+
+    elif isinstance(value,dict):
+        for k,v in value.iteritems():
+
+            cmd += ' --%s "%s=%s"' % (arg,k,v)
+
+    elif isinstance(value, bool):
+        if value:
+            cmd += ' --%s="%s"' % (arg,"true")
+        else: 
+            cmd += ' --%s="%s"' % (arg,"false") 
+    else:
+        cmd += ' --%s="%s"' % (arg,value)
+
+    return cmd
+    
