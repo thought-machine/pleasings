@@ -1,5 +1,5 @@
 [please]
-version = >=11.3.2
+version = >=13.1.0
 
 [build]
 path = /usr/local/bin:/usr/bin:/bin
@@ -21,6 +21,8 @@ android-tools-version = 25.0.3
 android-keystore =
 android-keystore-password =
 android-keystore-alias =
+; This doesn't exist but serves as an example.
+default-docker-repo = repo.please.build
 
 [proto]
 protocgoplugin = //third_party/go:protoc-gen-go

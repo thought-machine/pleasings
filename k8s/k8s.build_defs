@@ -1,0 +1,100 @@
+"""Rules for building Kubernetes objects."""
+
+
+def k8s_config(name:str, srcs:list, containers:list=[], params:dict=None, visibility:list=None,
+               labels:list=[], vendorised:bool=False, deps:list=[]):
+    """Defines some Kubernetes config and performs templating of containers.
+
+    For each k8s_config rule, one genrule per container and two genrules per src are generated:
+     - The genrule for each container will build the container and store the full name + label
+       to the output file.
+     - The first genrule for each source will parse the YAML configs, and extract volume mounts
+       that are prefixed with /etc/hault/, storing them as JSON output to be consumed by an
+       external script.
+     - The second genrule for each source will template the generic config and store the templated
+       version.
+
+    The final rule is simply a filegroup of the templated configs.
+
+    Args:
+      name: Name of the rule.
+      srcs: YAML config files containing the Kubernetes config.
+      containers: Container dependencies to template into the config file. The config
+                  contains Please build labels to refer to containers which are replaced with
+                  actual locations when the config is built.
+                  These rules will need to be docker_image rules (or something similar).
+      params: Map defining overrides for shell-substitution variables in srcs; if set, srcs is
+              passed through envsubst using the defined map.
+      visibility: Visibility of the rule
+      labels: Labels for this rule
+    """
+    returned_targets = {}
+    containers = [c for c in containers if c]
+
+    # Make sure to canonicalise each container (they could be in the form of ':local_container').
+    containers = [canonicalise(container) for container in containers]
+
+    # This will template image tags into k8s resource files that reference docker images by build target.
+    fqns = [f'{c}_fqn' for c in containers]
+    # Tag with appropriate labels
+    labels += ['k8s'] + ['container:' + c for c in containers]
+
+    # Template each config YAML and collect them in the filegroup.
+    rules = []
+
+    # Now that we have a collection of files, each containing a container name + label, we can
+    # create a multi-expression sed command to replace a build target with the actual containers.
+    if containers:
+        exports = [f'export {k}={v}' for k,v in params.items()] if params else []
+        envsubst_vars = ",".join(['${%s}' % k for k in params.keys()] if params else [])
+        # Pseudo build rule to check that the specified containers exist in the k8s files.
+        # Has to be a separate rule because containers might only occur in one of the files.
+        check_rule = build_rule(
+            name=name,
+            tag='check',
+            cmd='for IMG in %s; do grep "$IMG" $SRCS || (echo "Image $IMG not in k8s files"; exit 1); done' % ' '.join(containers),
+            srcs=srcs,
+        )
+
+        subcommands = ' '.join([
+            f'-e "s|{container}\\b|$(cat $(location {fqn}))|g"'
+            for container, fqn in sorted(zip(containers, fqns))
+        ])
+        replacement_command = f'sed {subcommands}'
+
+        for src in srcs:
+            cleaned_src = src.replace('/', '_').replace(':', '_')
+            src_tag = cleaned_src.replace('.', '_')
+            src_genrule_name = f'_{name}#{src_tag}'
+            if cleaned_src.endswith('_yaml'):
+                cleaned_src = cleaned_src[:-5] + '.yaml'
+            rules.append(f':{src_genrule_name}')
+            genrule(
+                name = src_genrule_name,
+                srcs = [src],
+                outs = ['templated_' + cleaned_src],
+                cmd = exports + [f"cat $SRCS | {replacement_command} | envsubst '{envsubst_vars}' > $OUT"],
+                deps = fqns + [check_rule],
+            )
+
+    else:
+        # We need this to be a filegroup so the files get built into plz-out.
+        rules = [filegroup(
+            name = name,
+            tag = 'srcs',
+            srcs = srcs,
+        )]
+
+    files = filegroup(
+        name = name,
+        srcs = rules,
+        visibility = visibility,
+        labels = labels,
+    )
+
+    # Generate a rule to push the configs.
+    sh_cmd(
+        name = name + '_push',
+        cmd = ' && '.join([f'kubectl apply -f $(out_location {x})' for x in rules]),
+        deps = rules,
+    )
