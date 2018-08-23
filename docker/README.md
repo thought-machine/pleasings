@@ -17,5 +17,3 @@ on the build rule to match. They'll be built in sequence.
 
 Images are fingerprinted and tagged using a unique hash based on their
 inputs, so they're always identifiable.
-
-In future we will introduce some Kubernetes rules that take advantage of these.

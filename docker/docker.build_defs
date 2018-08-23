@@ -69,7 +69,7 @@ def docker_image(name:str, srcs:list=[], image:str=None, version:str='',
         ],
         visibility = visibility,
         test_only = test_only,
-        labels = labels,
+        labels = labels + ['docker-build'],
     )
 
     # For compat reasons _load is an alias for the main build target.
@@ -101,6 +101,7 @@ def docker_image(name:str, srcs:list=[], image:str=None, version:str='',
         test_only = test_only,
         labels = labels,
     )
+    return docker_build
 
 
 def _docker_tarball_rule(name, srcs, dockerfile, base_image, test_only):

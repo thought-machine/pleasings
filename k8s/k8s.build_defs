@@ -5,7 +5,7 @@ def k8s_config(name:str, srcs:list, containers:list=[], params:dict=None, visibi
                labels:list=[], vendorised:bool=False, deps:list=[]):
     """Defines some Kubernetes config and performs templating of containers.
 
-    For each k8s_config rule, one genrule per container and two genrules per src is generated:
+    For each k8s_config rule, one genrule per container and two genrules per src are generated:
      - The genrule for each container will build the container and store the full name + label
        to the output file.
      - The first genrule for each source will parse the YAML configs, and extract volume mounts
