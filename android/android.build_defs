@@ -70,7 +70,7 @@ def android_resource(name, manifest, res, package='', resources_root=None, asset
         tag = 'res',
         srcs = {'res': [res], 'assets': [assets] if assets else []},
         outs = [name + '_res.jar'],
-        cmd = 'mv $SRCS_RES res && %s $TOOL -d -o $OUTS -i .' % ('mv $SRCS_ASSETS assets && ' if assets else ''),
+        cmd = 'mv $SRCS_RES res && %s $TOOL z -d -o $OUTS -i .' % ('mv $SRCS_ASSETS assets && ' if assets else ''),
         tools = [CONFIG.JARCAT_TOOL],
     )
     filegroup(
@@ -208,7 +208,7 @@ def android_binary(name, resources, assets=None, out=None, arch=None, deps=None,
         tag = 'native',
         deps = deps,
         outs = [name + '_native_libs.jar'],
-        cmd = '$TOOL -strict -i . -s .aar -s .jar -e _src.aar -e _src.jar -t "%s" -t "META-INF/services/" -o $OUTS -r jni/:lib/' % flag,
+        cmd = '$TOOL z -strict -i . -s .aar -s .jar -e _src.aar -e _src.jar -t "%s" -t "META-INF/services/" -o $OUTS -r jni/:lib/' % flag,
         needs_transitive_deps = True,
         output_is_complete = True,
         requires = ['android'],
@@ -249,7 +249,7 @@ def android_binary(name, resources, assets=None, out=None, arch=None, deps=None,
             'other': [native_rule, aapt_rule] + (native_libs or []),
         },
         outs = ['unsigned_' + out],
-        cmd = 'mv $SRCS_DEX classes.dex && $TOOL -a 4 -i . -o $OUTS --include_other --strict',
+        cmd = 'mv $SRCS_DEX classes.dex && $TOOL z -a 4 -i . -o $OUTS --include_other --strict',
         requires = ['res'],
         tools = [CONFIG.JARCAT_TOOL],
     )
@@ -272,7 +272,7 @@ def android_binary(name, resources, assets=None, out=None, arch=None, deps=None,
         cmd = ' && '.join([
             'cp $SRCS tmp.apk',
             '$TOOLS_SIGNER -verbose -keystore $SECRETS -storepass "%s" tmp.apk %s' % (password, alias),
-            '$TOOLS_JARCAT -a 4 -i tmp.apk -s ".apk" -o $OUT',
+            '$TOOLS_JARCAT z -a 4 -i tmp.apk -s ".apk" -o $OUT',
         ])
         secrets = [keystore]
 
@@ -320,7 +320,7 @@ def android_aar(name, resources, manifest=None, deps=None, visibility=None):
         srcs = [':_%s#classes' % name, manifest, resources],
         visibility = visibility,
         outs = [name + '.aar'],
-        cmd = 'mv $SRCS . && $TOOL -dno $OUTS -i .',
+        cmd = 'mv $SRCS . && $TOOL z -dno $OUTS -i .',
         requires = ['r', 'res_src', 'manifest'],
         tools = [CONFIG.JARCAT_TOOL],
     )
@@ -475,7 +475,7 @@ def dex_library(name, src, tag=None, visibility=None, test_only=False, deps=None
         tag = tag,
         srcs = [dex_rule],
         outs = [name + '.dex.jar'],
-        cmd = 'mv $SRCS classes.dex && $TOOL -d -i classes.dex -o $OUT',
+        cmd = 'mv $SRCS classes.dex && $TOOL z -d -i classes.dex -o $OUT',
         visibility = visibility,
         building_description = 'Dexing...',
         test_only = test_only,

@@ -128,7 +128,7 @@ def ndk_shared_object(name, srcs=None, hdrs=None, out='', compiler_flags=None, l
         cmd = [
             'mkdir -p lib/' + CONFIG.NDK_ABI,
             'mv $SRCS lib/' + CONFIG.NDK_ABI,
-            '$TOOL -d -i lib'
+            '$TOOL z -d -i lib'
         ],
         visibility = visibility,
     )
