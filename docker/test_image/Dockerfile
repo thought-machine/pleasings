@@ -11,7 +11,7 @@ RUN curl -sSf http://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.6.3.tar
     rm -rf /tmp/openfst-1.6.3
 # Note that Thrax installs some things for root:staff, which fails on CircleCI, so we chown
 # them back to root:root again.
-RUN curl -sSf http://openfst.cs.nyu.edu/twiki/pub/GRM/ThraxDownload/thrax-1.2.3.tar.gz | tar -xz && \
+RUN curl -sSf http://www.openfst.org/twiki/pub/GRM/ThraxDownload/thrax-1.2.3.tar.gz | tar -xz && \
     cd thrax-1.2.3 && \
     ./configure --prefix=/usr --enable-static --enable-shared && \
     make -j4 && \
@@ -51,3 +51,6 @@ RUN curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
     echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial main" > /etc/apt/sources.list.d/llvm.list && \
     apt-get update && \
     apt-get install -y clang-6.0
+
+# pip (python deps)
+RUN apt-get install -y python3-pip

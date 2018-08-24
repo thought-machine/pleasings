@@ -86,7 +86,7 @@ def github_file(name, repo, file, revision='master', out=None, hash=None, visibi
                     'is prone to breaking if upstream changes at any point.')
     return remote_file(
         name = name,
-        url = join_path('https://raw.githubusercontent.com', repo, revision, file),
+        url = 'https://' + join_path('raw.githubusercontent.com', repo, revision, file),
         out = out,
         hashes = [hash] if hash else None,
         visibility = visibility,

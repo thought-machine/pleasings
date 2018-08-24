@@ -17,7 +17,7 @@ For any of this to work you will need to have libfst and thraxcompiler installed
 subinclude('//remote')
 
 
-def grm_library(name, src, deps=None, data=None, visibility=None, timeout=0):
+def grm_library(name:str, src:str, deps:list=[], data:list=[], visibility:list=None, timeout:int=0):
     """Build rule for compiling a Thrax grammar.
 
     Args:
@@ -28,8 +28,6 @@ def grm_library(name, src, deps=None, data=None, visibility=None, timeout=0):
       visibility: Rule visibility.
       timeout: Timeout (in seconds) for building this rule.
     """
-    data = data or []
-    deps = deps or []
     thraxcompiler = CONFIG.get('THRAXCOMPILER', 'thraxcompiler')
 
     # thraxcompiler needs access to both the sources and compiled artifacts
@@ -69,8 +67,8 @@ def grm_library(name, src, deps=None, data=None, visibility=None, timeout=0):
     )
 
 
-def grm_test(name, ref, far, exclude=None, ignore_case=False, separator=None,
-             test_main=None, deps=None, visibility=None, labels=None):
+def grm_test(name:str, ref:str, far:str, exclude:list=None, ignore_case:bool=False,
+             test_main:str=None, deps:list=None, visibility:list=None, labels:list=None):
     """Build rule for compiling a test on a Thrax grammar.
 
     Args:
@@ -112,7 +110,8 @@ def grm_test(name, ref, far, exclude=None, ignore_case=False, separator=None,
     )
 
 
-def extract_fst(name, src, rule, out=None, deps=None, visibility=None, farextract=None):
+def extract_fst(name:str, src:str, rule:str, out:str=None,
+                deps:list=None, visibility:list=None, farextract:str=None):
     """Build rule to extract a single FST from a .far.
 
     Args:
@@ -139,7 +138,7 @@ def extract_fst(name, src, rule, out=None, deps=None, visibility=None, farextrac
     )
 
 
-def filter_far(name, src, rules, out=None, deps=None, visibility=None):
+def filter_far(name:str, src:str, rules:list, out:str=None, deps:list=None, visibility:list=None):
     """Build rule to cut down a .far to just the given rules.
 
     Args:
@@ -175,6 +174,7 @@ def grm_init():
     [buildconfig]
     grm-test-main = //third_party/grm:test_main
     """
+    # TODO(peterebden): This should really be modernised to suggest using it as a subrepo.
     if 'GRM_TEST_MAIN' not in CONFIG:
         raise ParseError('grm-test-main not set in .plzconfig')
 
