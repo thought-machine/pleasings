@@ -99,7 +99,7 @@ def scala_library(name:str, srcs:list=None, src_dir:str=None, resources:list=Non
 
 def scala_binary(name:str, main_class:str=None, out:str=None, srcs:list=None, deps:list=[],
                  data:list=None, visibility:list=None, self_executable:bool=True,
-                 jvm_args:str=None, manifest:str=None):
+                 jvm_args:str='', manifest:str=None):
     """Compiles a .jar from a set of scala libraries.
 
     Args:
@@ -125,7 +125,7 @@ def scala_binary(name:str, main_class:str=None, out:str=None, srcs:list=None, de
         )
         deps.append(lib_rule)
     if self_executable:
-        preamble = '#!/bin/sh\nexec java %s -jar $0 ${@}' % (jvm_args or '')
+        preamble = '#!/bin/sh\nexec java %s -jar $0 ${@}' % jvm_args
         cmd, tools = _jarcat_cmd(main_class, preamble, manifest=manifest)
     else:
         cmd, tools = _jarcat_cmd(main_class, manifest=manifest)
