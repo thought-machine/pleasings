@@ -38,7 +38,7 @@ def scala_library(name:str, srcs:list=None, src_dir:str=None, resources:list=Non
             )
             deps.append(res_rule)
 
-        scalac_flags = " ".join([flag for flag in scalac_flags]) or ""
+        scalac_flags = " ".join(scalac_flags) or ""
 
         scalac_command = 'mkdir -p _tmp/META-INF && $TOOLS_SCALAC %s -classpath .:%s -d _tmp %s' % (
             scalac_flags,
@@ -53,7 +53,7 @@ def scala_library(name:str, srcs:list=None, src_dir:str=None, resources:list=Non
             '$TOOLS_JARCAT z -d -o $OUT -i .',
         ])
 
-        deps.append("//third_party/scala:scala-library")
+        deps.append(CONFIG.SCALA_LIBRARY)
 
         return build_rule(
             name=name,
@@ -67,7 +67,7 @@ def scala_library(name:str, srcs:list=None, src_dir:str=None, resources:list=Non
             visibility=visibility,
             cmd=cmd,
             building_description="Compiling...",
-            requires=['java', 'scala', 'scalac'],
+            requires=['scala'],
             labels = labels,
             test_only=test_only,
             tools={
@@ -98,7 +98,7 @@ def scala_library(name:str, srcs:list=None, src_dir:str=None, resources:list=Non
 
 
 def scala_binary(name:str, main_class:str=None, out:str=None, srcs:list=None, deps:list=[],
-                 data:list=None, visibility:list=None, self_executable:bool=False,
+                 data:list=None, visibility:list=None, self_executable:bool=True,
                  jvm_args:str=None, manifest:str=None):
     """Compiles a .jar from a set of scala libraries.
 
@@ -130,8 +130,6 @@ def scala_binary(name:str, main_class:str=None, out:str=None, srcs:list=None, de
     else:
         cmd, tools = _jarcat_cmd(main_class, manifest=manifest)
 
-    deps.append("//third_party/scala:scala-library")
-
     build_rule(
         name=name,
         deps=deps,
@@ -143,7 +141,7 @@ def scala_binary(name:str, main_class:str=None, out:str=None, srcs:list=None, de
         output_is_complete=True,
         binary=True,
         building_description="Creating jar...",
-        requires=['java', 'scala'],
+        requires=['scala'],
         visibility=visibility,
         tools=tools,
         labels=None if self_executable else ['scala_non_exe'],
@@ -164,3 +162,4 @@ def _jarcat_cmd(main_class=None, preamble=None, manifest=None):
 
 
 CONFIG.setdefault('SCALAC_TOOL', 'scalac')
+CONFIG.setdefault('SCALA_LIBRARY', '//third_party/scala:scala-library')
