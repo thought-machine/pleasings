@@ -17,6 +17,7 @@ Currently contains the following:
    using [grpc-gateway](https://github.com/grpc-ecosystem/grpc-gateway)
  * Java: An extended compiler worker that integrates
    [error-prone](https://github.com/google/error-prone) for additional compile-time diagnostics.
+ * Scala: Basic rules for compiling scala code to `.jar` files. No test support yet.
  * Javascript: A set of rules integrating Yarn dependencies and a Webpack-based build into Please.
    Still somewhat incomplete.
  * Package: Rules for packaging things. Currently contains a generic wrapper to
