@@ -161,5 +161,24 @@ def _jarcat_cmd(main_class=None, preamble=None, manifest=None):
                  'scalac': [CONFIG.SCALAC_TOOL]}
 
 
+def scala_maven_jar(name:str, artifact:str='', hash:str=None, deps:list=None, test_only:bool=False,
+                    visibility:list=None, sources:bool=True, licences:list=None):
+    """Wrapper around maven_jar for Scala stdlib jars.
+
+    Automatically appends the version (as set by the scala-version config property).
+    """
+    return maven_jar(
+        name = name,
+        id = 'org.scala-lang:%s:%s' % (artifact or name, CONFIG.SCALA_VERSION),
+        hash = hash,
+        test_only = test_only,
+        deps = deps,
+        visibility = visibility,
+        sources = sources,
+        licences = licences,
+    )
+
+
 CONFIG.setdefault('SCALAC_TOOL', 'scalac')
 CONFIG.setdefault('SCALA_LIBRARY', '//third_party/scala:scala-library')
+CONFIG.setdefault('SCALA_VERSION', '2.12.6')
