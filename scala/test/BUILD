@@ -14,6 +14,6 @@ scala_binary(
 
 scala_binary(
     name = "hello_with_dep",
-    main_class = "HelloWorld",
+    main_class = "net.thoughtmachine.please.scala.HelloWorld",
     deps = [":hello"],
 )
