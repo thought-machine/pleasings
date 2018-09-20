@@ -17,3 +17,12 @@ scala_binary(
     main_class = "net.thoughtmachine.please.scala.HelloWorld",
     deps = [":hello"],
 )
+
+java_test(
+    name = "hello_java_test",
+    srcs = ["HelloTest.java"],
+    deps = [
+        ":hello",
+        "//third_party/java:junit",
+    ],
+)
