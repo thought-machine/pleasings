@@ -1,7 +1,7 @@
 package build.please.compile;
 
+import build.please.compile.BuildRequest;
 import build.please.compile.JavaCompiler;
-import build.please.worker.WorkerProto.BuildRequest;
 import com.google.errorprone.ErrorProneJavaCompiler;
 
 public class ErrorProneCompiler extends JavaCompiler {
@@ -18,7 +18,7 @@ public class ErrorProneCompiler extends JavaCompiler {
     // Currently this attempts to exclude generated code although we don't consistently
     // label it as such (but when we do one day, this will Just Work...).
     static boolean shouldCheck(BuildRequest request) {
-        return !request.getLabelsList().contains("proto");
+        return !request.labels.contains("proto");
     }
 
     public static void main(String[] args) {
