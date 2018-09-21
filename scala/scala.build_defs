@@ -161,15 +161,19 @@ def _jarcat_cmd(main_class=None, preamble=None, manifest=None):
                  'scalac': [CONFIG.SCALAC_TOOL]}
 
 
-def scala_maven_jar(name:str, artifact:str='', hash:str=None, deps:list=None, test_only:bool=False,
-                    visibility:list=None, sources:bool=True, licences:list=None):
-    """Wrapper around maven_jar for Scala stdlib jars.
+def scala_jar(name:str, id:str, hash:str=None, deps:list=None, test_only:bool=False,
+              visibility:list=None, sources:bool=True, licences:list=None):
+    """Wrapper around maven_jar for Scala jars.
 
-    Automatically appends the version (as set by the scala-version config property).
+    Automatically appends the Scala version (as set by the scala-version config property)
+    to the artifact id.
+
+    N.B. scala-library is *never* one of these (because it is not suffixed with its own version).
     """
+    org, artifact, version = id.split(':')
     return maven_jar(
         name = name,
-        id = 'org.scala-lang:%s:%s' % (artifact or name, CONFIG.SCALA_VERSION),
+        id = f'{org}:{artifact}_%s:{version}' % CONFIG.SCALA_VERSION,
         hash = hash,
         test_only = test_only,
         deps = deps,
@@ -181,4 +185,4 @@ def scala_maven_jar(name:str, artifact:str='', hash:str=None, deps:list=None, te
 
 CONFIG.setdefault('SCALAC_TOOL', 'scalac')
 CONFIG.setdefault('SCALA_LIBRARY', '//third_party/scala:scala-library')
-CONFIG.setdefault('SCALA_VERSION', '2.12.6')
+CONFIG.setdefault('SCALA_VERSION', '2.12')
