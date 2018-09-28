@@ -1,0 +1,80 @@
+def requirements_txt(name:str, src:str='requirements.txt', zip_safe:bool=True, test_only:bool=False,
+                     deps:list=None, visibility:list=None):
+    """Derives a series of auto_pip_library rules from a requirements.txt file.
+
+    Note that this does not yet support all possible entries in such a file
+    (e.g. it does not support -r to specify another file).
+    We recommend creating the file via `pip freeze` to create a complete listing.
+    """
+    txt_rule = build_rule(
+        name = name,
+        tag = 'read',
+        srcs = [src],
+        cmd = 'cat $SRCS',
+        post_build = lambda _, output: [add_dep(name, auto_pip_library(
+            name = line.partition('=')[0].rstrip('>=< '),
+            package = line,
+        )) for line in output if not line.startswith('#')],
+        deps = deps,
+    )
+    return filegroup(
+        name = name,
+        deps = [txt_rule],
+        output_is_complete = False,
+        visibility = visibility,
+        labels = ['py:zip-unsafe'] if not zip_safe else None,
+        test_only = test_only,
+    )
+
+
+def auto_pip_library(name:str, package:str='', zip_safe:bool=True,
+                     test_only:bool&testonly=False, deps:list=[], visibility:list=None):
+    """Modified version of pip_library that determines outputs automatically.
+
+    This is mildly worse than using pip_library directly (for example, some aspects of plz query
+    don't work quite as well) but is easier to set up. Some of the more esoteric features
+    (like patches and post-install commands) aren't supported.
+
+    Args:
+      name (str): Name of the build rule.
+      package (str): Package specifier to install (e.g. six==1.11.0). Defaults to the same as name.
+      test_only (bool): If True, can only be used by test rules or other test_only libraries.
+      deps (list): List of rules this library depends on.
+      visibility (list): Visibility declaration for this rule.
+      zip_safe (bool): Flag to indicate whether a pex including this rule will be zip-safe.
+    """
+    package = package or name
+    index_flag = '' if CONFIG.USE_PYPI else '--no-index'
+    repo_flag = '-f {CONFIG.DEFAULT_PYTHON_PIP_REPO}'
+
+    cmd = f'$TOOLS_PIP download --no-deps --no-cache-dir {repo_flag} {index_flag} {package} && mv *.whl $OUT'
+
+    wheel_rule = build_rule(
+        name = name,
+        tag = 'wheel',
+        cmd = cmd,
+        outs = [name + '.whl'],
+        deps = deps,
+        building_description = 'Fetching...',
+        requires = ['py'],
+        test_only = test_only,
+        tools = {
+            'pip': [CONFIG.PIP_TOOL],
+            'jarcat': [CONFIG.JARCAT_TOOL],
+        },
+        sandbox = False,
+        labels = ['py:zip-unsafe'] if not zip_safe else None,
+    )
+    return build_rule(
+        name = name,
+        srcs = [wheel_rule],
+        cmd = '$TOOL x $SRCS && rm -rf $(echo $SRCS | cut -d "/" -f 1) && ls',
+        tools = [CONFIG.JARCAT_TOOL],
+        labels = ['py', 'pip:' + package],
+        provides = {'py': wheel_rule},
+        visibility = visibility,
+        test_only = test_only,
+        deps = deps,
+        post_build = lambda name, output: [add_out(name, line) for line in output
+                                           if 'dist-info' not in line and 'egg-info' not in line],
+    )
