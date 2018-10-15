@@ -1,6 +1,6 @@
 """Build rules for OpenPGP signing of files."""
 
-subinclude('//package:fpm')
+subinclude('@pleasings//package:fpm')
 
 
 def signed_fpm_deb(name, version, package_name=None, files=None, dirs=None, links=None,
@@ -81,7 +81,7 @@ def detached_signature(name, src, out, labels=None, deps=None, visibility=None):
         name = name,
         srcs = [src],
         outs = [out],
-        tools = ['//signing/release_signer'],
+        tools = [CONFIG.SIGNING_TOOL],
         secrets = [CONFIG.SIGNING_KEY],
         cmd = '$TOOL -i $SRCS -k $SECRETS',
         deps = deps,
@@ -91,3 +91,4 @@ def detached_signature(name, src, out, labels=None, deps=None, visibility=None):
 
 
 CONFIG.setdefault('SIGNING_KEY', '')
+CONFIG.setdefault('SIGNING_TOOL', '@pleasings//signing/release_signer')

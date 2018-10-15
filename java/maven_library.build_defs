@@ -1,4 +1,4 @@
-subinclude('//signing')
+subinclude('@pleasings//signing')
 
 
 def maven_library(name:str, srcs:list, pom:str, version:str, package_name:str=None,
