@@ -38,41 +38,39 @@ def maven_library(name:str, srcs:list, pom:str, version:str, jar:str=None, packa
         src = pom_rule,
         out = full_name + '.pom.asc',
     )
-    artifacts = [pom_rule, pom_sig]
-
-    if srcs:
-        # Sources provided, set up source and javadoc jars
-        src_rule = build_rule(
-            name = name,
-            tag = 'srcs',
-            srcs = srcs,
-            tools = [CONFIG.JARCAT_TOOL],
-            outs = [full_name + '-sources.jar'],
-            # This is really pushing the limits of things in Bash; probably should have a more real
-            # tool for this.
-            cmd = 'for SRC in $SRCS; do PKG="`grep -o \'package .*;\' $SRC | cut -c 8- | tr -d \';\'`";'
-                  'DIR="${PKG//.//}"; mkdir -p $DIR && mv $SRC $DIR; done; $TOOL z -d -n -i .',
-        )
-        src_sig = detached_signature(
-            name = f'_name#src_sig',
-            src = src_rule,
-            out = full_name + '-sources.jar.asc',
-        )
-        javadoc_rule = build_rule(
-            name = name,
-            tag = 'javadoc',
-            srcs = srcs,
-            outs = [full_name + '-javadoc.jar'],
-            cmd = r'javadoc -d _tmp -classpath .:`find $TMP_DIR -name "*.jar" | tr \\\\n :` $SRCS && cd _tmp && $TOOL z -d -n -i .',
-            tools = [CONFIG.JARCAT_TOOL],
-            deps = deps,
-        )
-        javadoc_sig = detached_signature(
-            name = f'_name#javadoc_sig',
-            src = javadoc_rule,
-            out = full_name + '-javadoc.jar.asc',
-        )
-        artifacts = [src_rule, src_sig, javadoc_rule, javadoc_sig]
+    src_rule = build_rule(
+        name = name,
+        tag = 'srcs',
+        srcs = srcs,
+        tools = [CONFIG.JARCAT_TOOL],
+        outs = [full_name + '-sources.jar'],
+        # This is really pushing the limits of things in Bash; probably should have a more real
+        # tool for this.
+        cmd = 'for SRC in $SRCS; do PKG="`grep -o \'package .*;\' $SRC | cut -c 8- | tr -d \';\'`";'
+              'DIR="${PKG//.//}"; mkdir -p $DIR && mv $SRC $DIR; done; $TOOL z -d -n -i .',
+    )
+    src_sig = detached_signature(
+        name = f'_name#src_sig',
+        src = src_rule,
+        out = full_name + '-sources.jar.asc',
+    )
+    javadoc_rule = build_rule(
+        name = name,
+        tag = 'javadoc',
+        srcs = srcs,
+        outs = [full_name + '-javadoc.jar'],
+        cmd = r'$TOOLS_JAVADOC -d _tmp -classpath .:`find $TMP_DIR -name "*.jar" | tr \\\\n :` $SRCS && cd _tmp && $TOOLS_JARCAT z -d -n -i .' if srcs else '$TOOLS_JARCAT z -d -n -i .',
+        tools = {
+            'jarcat': [CONFIG.JARCAT_TOOL],
+            'javadoc': ['javadoc'],
+        },
+        deps = deps if srcs else None,
+    )
+    javadoc_sig = detached_signature(
+        name = f'_name#javadoc_sig',
+        src = javadoc_rule,
+        out = full_name + '-javadoc.jar.asc',
+    )
 
     if jar:
         java_rule = jar
@@ -89,11 +87,10 @@ def maven_library(name:str, srcs:list, pom:str, version:str, jar:str=None, packa
         src = java_rule,
         out = full_name + '.jar.asc',
     )
-    artifacts += [java_rule, java_sig]
 
     return build_rule(
         name = name,
-        srcs = artifacts,
+        srcs = [pom_rule, pom_sig, src_rule, src_sig, javadoc_rule, javadoc_sig, java_rule, java_sig],
         outs = [name + '.jar'],
         cmd = 'cd $PKG_DIR && $TOOL z -d --include_other -i . -n',
         tools = [CONFIG.JARCAT_TOOL],
