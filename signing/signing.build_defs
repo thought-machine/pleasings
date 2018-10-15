@@ -1,0 +1,93 @@
+"""Build rules for OpenPGP signing of files."""
+
+subinclude('//package:fpm')
+
+
+def signed_fpm_deb(name, version, package_name=None, files=None, dirs=None, links=None,
+                   post_cmds=None, visibility=None):
+    """Creates a signed deb using FPM.
+
+    All arguments are passed through to fpm_deb.
+
+    This will create two rules, one with the expected name that is the deb, and one with
+    a _signed suffix that contains the detached .asc file.
+    """
+    package_name = package_name or name
+    deb_rule = fpm_deb(
+        name = name,
+        package_name = package_name,
+        version = version,
+        files = files,
+        dirs = dirs,
+        links = links,
+        post_cmds = post_cmds,
+        visibility = visibility,
+    )
+    return detached_signature(
+        name = name + '_signed',
+        src = deb_rule,
+        out = '%s_%s_%s.deb.asc' % (package_name, version, CONFIG.ARCH),
+        visibility = visibility,
+        labels = ['deb_asc', 'manual'],
+    )
+
+
+def signed_tarball(name, srcs, out, subdir, visibility=None):
+    """Creates a signed tarball.
+
+    All arguments are passed through to tarball.
+
+    This will create two rules, one with the expected name that is the tarball, and one with
+    a _signed suffix that contains the detached .asc file.
+    """
+    tar_rule = tarball(
+        name = name,
+        srcs = srcs,
+        out = out,
+        subdir = subdir,
+        visibility = visibility,
+    )
+    return detached_signature(
+        name = name + '_signed',
+        src = tar_rule,
+        out = out + '.asc',
+        visibility = visibility,
+        labels = ['tar_asc', 'manual'],
+    )
+
+
+def detached_signature(name, src, out, labels=None, deps=None, visibility=None):
+    """Creates an ASCII-armored detached signature of a single file.
+
+    Note that you need to supply the passphrase for this to work. The best way to keep it from
+    being logged is to pass it as an environment variable:
+      PLZ_OVERRIDES=buildenv.gpg_password:54321 plz build //...
+    or presumably getting your CI system to inject the password when needed.
+
+    You also need to set the key location via config; either signing-key in the [buildenv]
+    section, or use package() in the specific build file.
+
+    Args:
+      name (str): Name of the rule.
+      src (str): Input file or rule. If a rule, it must have only a single output.
+      out (str): Name of output signature file.
+      labels (list): Labels to apply to this rule.
+      deps (list): Dependencies.
+      visibility (list): Visibility of the rule.
+    """
+    check_config('SIGNING_KEY', rule='signing', example='~/.gnupg/releases.gpg')
+    check_config('GPG_PASSWORD', rule='signing', example='12345')
+    return genrule(
+        name = name,
+        srcs = [src],
+        outs = [out],
+        tools = ['//signing/release_signer'],
+        secrets = [CONFIG.SIGNING_KEY],
+        cmd = '$TOOL -i $SRCS -k $SECRETS',
+        deps = deps,
+        visibility = visibility,
+        labels = ['asc'] + (labels or []),
+    )
+
+
+CONFIG.setdefault('SIGNING_KEY', '')
