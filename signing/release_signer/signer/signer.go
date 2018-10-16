@@ -1,20 +1,39 @@
 package signer
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
+	"strings"
 
 	"golang.org/x/crypto/openpgp"
 )
 
 // SignFile creates a detached ASCII-armoured signature for the given file.
 func SignFile(filename, output, keyring, user, password string) error {
+	if strings.HasPrefix(keyring, "-----BEGIN PGP") {
+		// Keyring is an actual key, not a file.
+		return signFile(filename, output, user, password, strings.NewReader(keyring))
+	} else if strings.HasPrefix(keyring, "LS0tLS1") {
+		// Keyring is a base64 encoded key
+		b, err := base64.StdEncoding.DecodeString(keyring)
+		if err != nil {
+			return err
+		}
+		return signFile(filename, output, user, password, bytes.NewReader(b))
+	}
 	f, err := os.Open(keyring)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	entities, err := openpgp.ReadArmoredKeyRing(f)
+	return signFile(filename, output, user, password, f)
+}
+
+func signFile(filename, output, user, password string, keyring io.Reader) error {
+	entities, err := openpgp.ReadArmoredKeyRing(keyring)
 	if err != nil {
 		return err
 	}
