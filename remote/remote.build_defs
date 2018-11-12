@@ -19,7 +19,7 @@ def signed_remote_file(name, url, sig_url=None, key=None, hashes=None, out=None,
       deps (list): List of extra dependencies for this rule.
     """
     file_rule = remote_file(
-        name = '_%s#file' % name,
+        name = f'_{name}#file',
         url = url,
         hashes = hashes,
         out = out,
@@ -31,7 +31,7 @@ def signed_remote_file(name, url, sig_url=None, key=None, hashes=None, out=None,
 
     sig_url = sig_url or url + '.asc'
     sig_rule = remote_file(
-        name = '_%s#sig' % name,
+        name = f'_{name}#sig',
         url = sig_url,
         test_only = test_only,
         deps = deps,
@@ -39,7 +39,7 @@ def signed_remote_file(name, url, sig_url=None, key=None, hashes=None, out=None,
 
     if key.startswith('http://') or key.startswith('https://'):
         key = remote_file(
-            name = '_%s#key' % name,
+            name = f'_{name}#key',
             url = key,
             test_only = test_only,
             deps = deps,
@@ -112,16 +112,20 @@ def git_repo(name, repo, revision='master', files=None, hash=None, visibility=No
     if revision == 'master' and hash:
         log.warning('Your git_repo rule fetches from master but is hash verified; this '
                     'is prone to breaking if upstream changes at any point.')
-    files = files or [name]
+
+    cmd = ' && '.join([
+        f'git clone -q {repo} {name}',
+        f'(cd {name} && git checkout -q {revision})',
+        f'rm -rf {name}/.git'])
+
+    if files:
+        find_query = ' -or '.join([f'-name {f}' for f in files])
+        cmd = ' && '.join([cmd, f'find {name} {find_query}'])
+
     build_rule(
         name = name,
-        cmd = ' && '.join([
-            'git clone -q %s %s' % (repo, name),
-            '(cd %s && git checkout -q %s)' % (name, revision),
-            'rm -rf %s/.git' % name,
-            'find ' + ' '.join(files),
-        ]),
-        post_build=_find_git_repo_files,
+        cmd = cmd,
+        post_build=lambda name, output: [add_out(name, out) for out in output],
         hashes = [hash] if hash else None,
         visibility = visibility,
         test_only = test_only,

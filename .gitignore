@@ -3,3 +3,4 @@ plz-out
 .plz-cache
 .plzconfig.local
 node_modules
+*.swp
