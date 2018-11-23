@@ -1,4 +1,4 @@
-def template_files(name:str, srcs:list=None, substitutions:list=None, outs:list=None, visibility:list=None):
+def template_files(name:str, srcs:list=None, substitutions:list=None, outs:list=None, visibility:list=None, labels:list=None):
     substitutions = [canonicalise(s) for s in substitutions]
     returned_targets = {}
     check_substitutions_exist = build_rule(
@@ -28,4 +28,13 @@ def template_files(name:str, srcs:list=None, substitutions:list=None, outs:list=
             tools=['cat'],
             deps=[check_substitutions_exist],
         )
+        rules.append(f':{src_genrule_name}')
+ 
+    files = filegroup(
+        name=name,
+        srcs=rules,
+        visibility=visibility,
+        labels=labels,
+    )
+    returned_targets['FILES'] = files
     return returned_targets
