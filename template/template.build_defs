@@ -1,0 +1,31 @@
+def template_files(name:str, srcs:list=None, substitutions:list=None, outs:list=None, visibility:list=None):
+    substitutions = [canonicalise(s) for s in substitutions]
+    returned_targets = {}
+    check_substitutions_exist = build_rule(
+            name=name,
+            tag='check',
+            cmd='for SUB in %s; do grep "$SUB" $SRCS || (echo "Substitution $SUB is not in files"; exit 1); done' % ' '.join([s for s in substitutions]),
+            srcs=srcs,
+            )
+    returned_targets['CHECK'] = check_substitutions_exist
+
+    # construct substitution command
+    subcommands = ' '.join([f'-e "s|{sub}\\b|$(cat $(location {sub}))|g"' for sub in substitutions])
+    replacement_command = f'sed {subcommands}'
+    
+    rules = []
+    # make substitutions
+    for src in srcs:
+        cleaned_src = src.replace('/', '_').replace(':', '_')
+        src_tag = cleaned_src.replace('.', '_')
+
+        src_genrule_name = f'_{name}#{src_tag}'
+        genrule(
+            name=src_genrule_name,
+            srcs=[src],
+            outs=['templated_' + cleaned_src],
+            cmd=[f"$TOOLS $SRCS | {replacement_command} > $OUT"],
+            tools=['cat'],
+            deps=[check_substitutions_exist],
+        )
+    return returned_targets
