@@ -1,18 +1,22 @@
 def template_files(name:str, srcs:list=None, substitutions:list=None, outs:list=None, visibility:list=None, labels:list=None):
     substitutions = [canonicalise(s) for s in substitutions]
+    value_files = [f'{s}_value' for s in substitutions]
     returned_targets = {}
-    check_substitutions_exist = build_rule(
+    check_rule = build_rule(
             name=name,
             tag='check',
-            cmd='for SUB in %s; do grep "$SUB" $SRCS || (echo "Substitution $SUB is not in files"; exit 1); done' % ' '.join([s for s in substitutions]),
+            cmd='for SUB in %s; do grep "\'$SUB\'" $SRCS || (echo "\'$SUB\' is not in files"; exit 1); done' % ' '.join(substitutions),
             srcs=srcs,
             )
-    returned_targets['CHECK'] = check_substitutions_exist
+    returned_targets['CHECK'] = check_rule
 
     # construct substitution command
-    subcommands = ' '.join([f'-e "s|{sub}\\b|$(cat $(location {sub}))|g"' for sub in substitutions])
+    subcommands = ' '.join([
+       f'-e "s|\'{sub}\'|$($TOOLS $(location {value}))|g"' 
+        for sub, value in sorted(zip(substitutions, value_files))
+    ])
     replacement_command = f'sed {subcommands}'
-    
+
     rules = []
     # make substitutions
     for src in srcs:
@@ -20,16 +24,16 @@ def template_files(name:str, srcs:list=None, substitutions:list=None, outs:list=
         src_tag = cleaned_src.replace('.', '_')
 
         src_genrule_name = f'_{name}#{src_tag}'
+        rules.append(f':{src_genrule_name}')
         genrule(
             name=src_genrule_name,
             srcs=[src],
             outs=['templated_' + cleaned_src],
             cmd=[f"$TOOLS $SRCS | {replacement_command} > $OUT"],
             tools=['cat'],
-            deps=[check_substitutions_exist],
+            deps= value_files + [check_rule],
         )
-        rules.append(f':{src_genrule_name}')
- 
+
     files = filegroup(
         name=name,
         srcs=rules,
@@ -38,3 +42,13 @@ def template_files(name:str, srcs:list=None, substitutions:list=None, outs:list=
     )
     returned_targets['FILES'] = files
     return returned_targets
+
+def template_value(name:str, cmd:str, labels:list=None, visibility:list=None, test_only:bool=False):
+    val = build_rule(
+        name = f'{name}_value',
+        cmd = f'echo -n $({cmd}) > $OUT',
+        outs = [f'{name}_value'],
+        labels = labels,
+        visibility = visibility,
+        test_only = test_only,
+        )

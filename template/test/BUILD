@@ -4,17 +4,33 @@ template_files(
     name = "generated_files",
     srcs = ["templated.yaml"],
     substitutions = [
-        "//template/test/single_line",
+        "//template/test:single_line",
         ":single_line_local",
-        "//template/test/concatenated",
+        "//template/test:concatenated",
+        # "//randomthing",
     ],
-    outs = ["generated.py"],
+    outs = ["generated.yaml"],
     visibility = ["//template/test/..."],
 )
 
 python_test(
     name = "template_test",
+    data = ["expected.yaml"],
     srcs = ["template_test.py"],
-    deps = [":template_files",
-            ":generated_files"],
+    deps = [":generated_files"],
+)
+
+template_value(
+    name = "single_line",
+    cmd = "echo 'single line template'",
+)
+
+template_value(
+    name = "single_line_local",
+    cmd = "echo 'single line template'",
+)
+
+template_value(
+    name = "concatenated",
+    cmd = "echo ' concatenated'",
 )
