@@ -35,6 +35,6 @@ template_value(
 
 template_value(
     name = "concatenated",
-    cmd = "echo ' concatenated'",
+    cmd = 'echo "-concatenated"',
     visibility = ["//template/test/..."],
 )

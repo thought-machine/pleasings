@@ -5,7 +5,9 @@ tests:
   - description: "single line local"
     value: testing a single line local
   - description: "single line concatenate"
-    value: testing a single line concatenated
+    value: testing a single line-concatenated
   - description: "single line concatenate with separator"
     value: 
-      testing a single line: concatenated
+      testing a single line:-concatenated
+  - description: "shouldn't replace this"
+    value: //template/test:single_line
