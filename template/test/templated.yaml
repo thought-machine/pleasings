@@ -5,10 +5,10 @@ tests:
   - description: "single line local"
     value: '//template/test:single_line_local'
   - description: "single line concatenate"
-    value: '//template/test:single_line''//template/test:concatenated'
+    value: '//template/test:single_line' '//template/test:concatenated'
   - description: "single line concatenate with separator"
     value: 
-      '//template/test:single_line':'//template/test:concatenated'
+      '//template/test:single_line': '//template/test:concatenated'
   - description: "shouldn't replace this"
     value: //template/test:single_line
   - description: "special chars"
