@@ -23,14 +23,17 @@ python_test(
 template_value(
     name = "single_line",
     cmd = "echo 'single line template'",
+    visibility = ["//template/test/..."],
 )
 
 template_value(
     name = "single_line_local",
     cmd = "echo 'single line template'",
+    visibility = ["//template/test/..."],
 )
 
 template_value(
     name = "concatenated",
     cmd = "echo ' concatenated'",
+    visibility = ["//template/test/..."],
 )
