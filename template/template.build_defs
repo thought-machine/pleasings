@@ -12,7 +12,7 @@ def template_files(name:str, srcs:list=None, substitutions:list=None, outs:list=
 
     # construct substitution command
     subcommands = ' '.join([
-       f'-e "s|\'{sub}\'|$($TOOLS $(location {value}))|g"' 
+       f'-e "s|\'{sub}\'|$(cat $(location {value}) | sed -e \'s|[|\/&]|\\\&|g; s|\\\\\\\\|\\\\\\\\\\\\|g\')|g"'
         for sub, value in sorted(zip(substitutions, value_files))
     ])
     replacement_command = f'sed {subcommands}'

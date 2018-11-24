@@ -42,6 +42,6 @@ template_value(
 
 template_value(
     name = "special_chars",
-    cmd = 'echo "contains $.*[\]^|"',
+    cmd = 'echo "contains $.*[\]^|/&"',
     visibility = ["//template/test/..."],
 )

@@ -12,4 +12,4 @@ tests:
   - description: "shouldn't replace this"
     value: //template/test:single_line
   - description: "special chars"
-    value: contains $.*[\]^|
+    value: contains $.*[\]^|/&
