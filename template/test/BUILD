@@ -15,20 +15,21 @@ template_files(
 
 python_test(
     name = "template_test",
-    data = ["expected.yaml"],
+    data = ["expected.yaml",
+            ":generated_files"],
     srcs = ["template_test.py"],
     deps = [":generated_files"],
 )
 
 template_value(
     name = "single_line",
-    cmd = "echo 'single line template'",
+    cmd = "echo 'testing a single line'",
     visibility = ["//template/test/..."],
 )
 
 template_value(
     name = "single_line_local",
-    cmd = "echo 'single line template'",
+    cmd = "echo 'testing a single line local'",
     visibility = ["//template/test/..."],
 )
 

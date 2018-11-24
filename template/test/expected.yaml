@@ -3,7 +3,7 @@ tests:
   - description: "single line template"
     value: testing a single line
   - description: "single line local"
-    value: testing a single line
+    value: testing a single line local
   - description: "single line concatenate"
     value: testing a single line concatenated
   - description: "single line concatenate with separator"

@@ -6,6 +6,6 @@ tests:
     value: '//template/test:single_line_local'
   - description: "single line concatenate"
     value: '//template/test:single_line''//template/test:concatenated'
-  - description: 'single line concatenate with separator'
+  - description: "single line concatenate with separator"
     value: 
       '//template/test:single_line':'//template/test:concatenated'
