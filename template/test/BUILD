@@ -7,6 +7,7 @@ template_files(
         "//template/test:single_line",
         ":single_line_local",
         "//template/test:concatenated",
+        "//template/test:special_chars",
         # "//randomthing",
     ],
     outs = ["generated.yaml"],
@@ -36,5 +37,11 @@ template_value(
 template_value(
     name = "concatenated",
     cmd = 'echo "-concatenated"',
+    visibility = ["//template/test/..."],
+)
+
+template_value(
+    name = "special_chars",
+    cmd = 'echo "contains $.*[\]^|"',
     visibility = ["//template/test/..."],
 )
