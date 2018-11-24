@@ -28,7 +28,7 @@ def template_files(name:str, srcs:list=None, substitutions:list=None, outs:list=
         genrule(
             name=src_genrule_name,
             srcs=[src],
-            outs=['templated_' + cleaned_src],
+            outs=outs,
             cmd=[f"$TOOLS $SRCS | {replacement_command} > $OUT"],
             tools=['cat'],
             deps= value_files + [check_rule],
@@ -43,12 +43,11 @@ def template_files(name:str, srcs:list=None, substitutions:list=None, outs:list=
     returned_targets['FILES'] = files
     return returned_targets
 
-def template_value(name:str, cmd:str, labels:list=None, visibility:list=None, test_only:bool=False):
+def template_value(name:str, cmd:str, visibility:list=None, test_only:bool=False):
     val = build_rule(
         name = f'{name}_value',
         cmd = f'echo -n $({cmd}) > $OUT',
         outs = [f'{name}_value'],
-        labels = labels,
         visibility = visibility,
         test_only = test_only,
         )
