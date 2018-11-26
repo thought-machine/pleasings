@@ -24,17 +24,22 @@ def template_files(name:str, srcs:list=None, substitutions:dict=None, outs:list=
     replacement_command = f'sed {replace_in_single_quotes} | sed {replace_break_at_end}'
 
     rules = []
+    
+    def cleaned_src(src):
+        return src.replace('/', '_').replace(':', '_')
+
+    outs = outs or ['templated_' + cleaned_src(src) for src in srcs]
+    
     # make substitutions
-    for src in srcs:
-        cleaned_src = src.replace('/', '_').replace(':', '_')
-        src_tag = cleaned_src.replace('.', '_')
+    for src, out in zip(srcs, outs):
+        src_tag = cleaned_src(src).replace('.', '_')
 
         src_genrule_name = f'_{name}#{src_tag}'
         rules.append(f':{src_genrule_name}')
         genrule(
             name=src_genrule_name,
             srcs=[src],
-            outs=outs,
+            outs=[out],
             cmd=[f"$TOOLS $SRCS | {replacement_command} > $OUT"],
             tools=['cat'],
             deps= value_files + [check_rule],
