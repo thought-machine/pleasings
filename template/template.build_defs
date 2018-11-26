@@ -18,11 +18,10 @@ def template_files(name:str, srcs:list=None, substitutions:dict=None, outs:list=
         _sed_for_single_quotes(search, replacement) for search, replacement in sorted(zip(searches, replacements))
     ])
 
-    replace_new_line_at_end = ' '.join([
-        _sed_for_new_line(search, replacement) for search, replacement in sorted(zip(searches, replacements))
+    replace_break_at_end = ' '.join([
+        _sed_for_break(search, replacement) for search, replacement in sorted(zip(searches, replacements))
     ])
-    subcommands = replace_in_quotes + replace_new_line_at_end
-    replacement_command = f'sed {subcommands}'
+    replacement_command = f'sed {replace_in_single_quotes} | sed {replace_break_at_end}'
 
     rules = []
     # make substitutions
@@ -54,13 +53,13 @@ def _replacement_escaped(value_file):
     return f'$(cat $(location {value_file})' + r"| sed -e 's|[|\/&]|\\&|g ')"
 
 def _search_escaped(search):
-    return search # haven't found the need to yet but might in the future
+    return search # haven't found the need to escape the search yet
 
 def _sed_for_single_quotes(search, replace):
     return f'-e "s|\'{search}\'|{replace}|g"'
 
-def _sed_for_new_line(search, replace):
-    return r" | sed -e ':a' -e 'N' -e '$!ba' -e " + f'"s|{search}' + r"\n|" + replace + r"\n" + '|g"'
+def _sed_for_break(search, replace):
+    return f'-e "s|{search}\\b|{replace}|g"'
 
 def template_value(name:str, cmd:str, visibility:list=None, test_only:bool=False):
     val = build_rule(
