@@ -11,5 +11,7 @@ tests:
       testing a single line: concatenated
   - description: "should also replace this"
     value: testing a single line
+  - description: "but shouldnt replace this"
+    value: //template/test:single_line_more_things
   - description: "special chars"
     value: contains $.*[\]^|/&\\
