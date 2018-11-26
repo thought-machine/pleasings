@@ -1,20 +1,25 @@
-def template_files(name:str, srcs:list=None, substitutions:list=None, outs:list=None, visibility:list=None, labels:list=None):
-    substitutions = [canonicalise(s) for s in substitutions]
-    value_files = [f'{s}_value' for s in substitutions]
+def template_files(name:str, srcs:list=None, substitutions:dict=None, outs:list=None, visibility:list=None, labels:list=None):
+    build_labels = [canonicalise(s) for s in substitutions.keys()]
+    value_files = [f'{s}_{v}' for s, v in substitutions.items()]
     returned_targets = {}
     check_rule = build_rule(
             name=name,
             tag='check',
-            cmd='for SUB in %s; do grep "\'$SUB\'" $SRCS || (echo "\'$SUB\' is not in files"; exit 1); done' % ' '.join(substitutions),
+            cmd='for SUB in %s; do grep "\'$SUB\'" $SRCS || (echo "\'$SUB\' is not in files"; exit 1); done' % ' '.join(build_labels),
             srcs=srcs,
             )
     returned_targets['CHECK'] = check_rule
 
     # construct substitution command
-    subcommands = ' '.join([
-       f'-e "s|\'{sub}\'|$(cat $(location {value}) | sed -e \'s|[|\/&]|\\\&|g; s|\\\\\\\\|\\\\\\\\\\\\|g\')|g"'
-        for sub, value in sorted(zip(substitutions, value_files))
+    replace_in_quotes = ' '.join([
+       f'-e "s|\'{sub}\'|$(cat $(location {value}) | sed -e \'s|[|\/&]|\\\&|g\')|g"'
+        for sub, value in sorted(zip(build_labels, value_files))
     ])
+    replace_new_line_at_end = ' '.join([
+        f' | sed -e \':a\' -e \'N\' -e \'$!ba\' -e "s|{sub}' + r"\n" + f'|$(cat $(location {value}) | sed -e \'s|[|\/&]|\\\&|g\')' + r"\n" +'|g"'
+        for sub, value in sorted(zip(build_labels, value_files))
+    ])
+    subcommands = replace_in_quotes + replace_new_line_at_end
     replacement_command = f'sed {subcommands}'
 
     rules = []
