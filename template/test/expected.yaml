@@ -9,7 +9,7 @@ tests:
   - description: "single line concatenate with separator"
     value: 
       testing a single line: concatenated
-  - description: "shouldn't replace this"
-    value: //template/test:single_line
+  - description: "should also replace this"
+    value: testing a single line
   - description: "special chars"
-    value: contains $.*[\]^|/&
+    value: contains $.*[\]^|/&\\

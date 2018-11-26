@@ -9,7 +9,7 @@ tests:
   - description: "single line concatenate with separator"
     value: 
       '//template/test:single_line': '//template/test:concatenated'
-  - description: "shouldn't replace this"
+  - description: "should also replace this"
     value: //template/test:single_line
   - description: "special chars"
     value: '//template/test:special_chars'

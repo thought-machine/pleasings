@@ -3,13 +3,13 @@ subinclude("//template:template")
 template_files(
     name = "generated_files",
     srcs = ["templated.yaml"],
-    substitutions = [
-        "//template/test:single_line",
-        ":single_line_local",
-        "//template/test:concatenated",
-        "//template/test:special_chars",
+    substitutions = {
+        "//template/test:single_line":"value",
+        ":single_line_local":"value",
+        "//template/test:concatenated":"value",
+        "//template/test:special_chars":"value",
         # "//randomthing",
-    ],
+    },
     outs = ["generated.yaml"],
     visibility = ["//template/test/..."],
 )
@@ -36,12 +36,12 @@ template_value(
 
 template_value(
     name = "concatenated",
-    cmd = 'echo "concatenated"',
+    cmd = "echo 'concatenated'",
     visibility = ["//template/test/..."],
 )
 
 template_value(
     name = "special_chars",
-    cmd = 'echo "contains $.*[\]^|/&"',
+    cmd = r"echo 'contains $.*[\]^|/&\\'",
     visibility = ["//template/test/..."],
 )
