@@ -1,4 +1,4 @@
-def template_files(name:str, srcs:list=None, substitutions:dict=None, outs:list=None, visibility:list=None, labels:list=None):
+def template_files(name:str, srcs:list, substitutions:dict, outs:list=None, visibility:list=None, labels:list=None):
     build_labels = [canonicalise(s) for s in substitutions.keys()]
     value_files = [f'{s}_{v}' for s, v in substitutions.items()]
     returned_targets = {}
