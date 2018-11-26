@@ -8,7 +8,6 @@ template_files(
         ":single_line_local":"value",
         "//template/test:concatenated":"value",
         "//template/test:special_chars":"value",
-        # "//randomthing",
     },
     outs = ["generated.yaml"],
     visibility = ["//template/test/..."],

@@ -2,13 +2,6 @@ def template_files(name:str, srcs:list=None, substitutions:dict=None, outs:list=
     build_labels = [canonicalise(s) for s in substitutions.keys()]
     value_files = [f'{s}_{v}' for s, v in substitutions.items()]
     returned_targets = {}
-    check_rule = build_rule(
-            name=name,
-            tag='check',
-            cmd='for SUB in %s; do grep "$SUB" $SRCS || (echo "$SUB is not in files"; exit 1); done' % ' '.join(build_labels),
-            srcs=srcs,
-            )
-    returned_targets['CHECK'] = check_rule
 
     # construct substitution command
     replacements = [_replacement_escaped(value_file) for value_file in value_files]
@@ -42,7 +35,7 @@ def template_files(name:str, srcs:list=None, substitutions:dict=None, outs:list=
             outs=[out],
             cmd=[f"$TOOLS $SRCS | {replacement_command} > $OUT"],
             tools=['cat'],
-            deps= value_files + [check_rule],
+            deps= value_files,
         )
 
     files = filegroup(
