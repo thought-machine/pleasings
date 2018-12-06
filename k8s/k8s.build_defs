@@ -98,3 +98,11 @@ def k8s_config(name:str, srcs:list, containers:list=[], params:dict=None, visibi
         cmd = ' && '.join([f'kubectl apply -f $(out_location {x})' for x in rules]),
         deps = rules,
     )
+
+    # Generate a rule to cleanup the configs.
+    sh_cmd(
+        name = name + '_cleanup',
+        cmd = ' && '.join([f'kubectl delete --ignore-not-found -f $(out_location {x})' for x in rules]),
+        deps = rules,
+    )
+
