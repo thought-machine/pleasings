@@ -70,7 +70,7 @@ def _sed_for_break(search, replace):
     return f'-e "s|{search}\\b|{replace}|g"'
 
 def template_value(name:str, cmd:str, visibility:list=None, test_only:bool=False):
-    val = build_rule(
+    return build_rule(
         name = f'{name}_value',
         cmd = f'echo -n $({cmd}) > $OUT',
         outs = [f'{name}_value'],
