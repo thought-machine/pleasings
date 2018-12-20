@@ -1,0 +1,17 @@
+---
+tests:
+  - description: "single line template"
+    value: '//template/test:single_line'
+  - description: "single line local"
+    value: ':single_line_local'
+  - description: "single line concatenate"
+    value: '//template/test:single_line' '//template/test:concatenated'
+  - description: "single line concatenate with separator"
+    value: 
+      '//template/test:single_line': '//template/test:concatenated'
+  - description: "should also replace this"
+    value: //template/test:single_line
+  - description: "but shouldnt replace this"
+    value: //template/test:single_line_more_things
+  - description: "special chars"
+    value: '//template/test:special_chars'
