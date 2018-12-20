@@ -44,19 +44,15 @@ def template_files(name:str, srcs:list, subs, outs:list=None, visibility:list=No
     outs = outs or ['templated_' + cleaned_src(src) for src in srcs]
 
     # make substitutions
-    for src, out in zip(srcs, outs):
-        src_tag = cleaned_src(src).replace('.', '_')
-
-        src_genrule_name = f'_{name}#{src_tag}'
-        rules.append(f':{src_genrule_name}')
-        genrule(
-            name=src_genrule_name,
-            srcs=[src],
-            outs=[out],
-            cmd=[f"$TOOLS $SRCS | {replacement_command} > $OUT"],
-            tools=['cat'],
-            deps=replacement_targets,
-        )
+    rules = [build_rule(
+                name=name,
+                tag=cleaned_src(src).replace('.', '_'),
+                srcs=[src],
+                outs=[out],
+                cmd=f"$TOOLS $SRCS | {replacement_command} > $OUT",
+                tools=['cat'],
+                deps=replacement_targets,
+            ) for src, out in zip(srcs, outs)]
 
     return filegroup(
         name=name,
