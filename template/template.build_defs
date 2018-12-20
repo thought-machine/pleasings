@@ -36,8 +36,6 @@ def template_files(name:str, srcs:list, subs, outs:list=None, visibility:list=No
     ])
     replacement_command = f'sed {replace_in_single_quotes} | sed {replace_break_at_end}'
 
-    rules = []
-
     def cleaned_src(src):
         return src.replace('/', '_').replace(':', '_')
 
