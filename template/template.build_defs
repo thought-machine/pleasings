@@ -1,6 +1,12 @@
-def template_files(name:str, srcs:list, substitutions:dict, outs:list=None, visibility:list=None, labels:list=None):
-    build_labels = [canonicalise(s) for s in substitutions.keys()]
-    value_files = [f'{s}_{v}' if v else s for s, v in substitutions.items()]
+def template_files(name:str, srcs:list, substitutions, outs:list=None, visibility:list=None, labels:list=None):
+
+    if isinstance(substitutions, list):
+        build_labels = [canonicalise(l) for l in substitutions]
+        value_files = build_labels
+    elif isinstance(substitutions, dict):
+        build_labels = [canonicalise(l) for l in substitutions.keys()]
+        value_files = [canonicalise(v) for _, v in substitutions.items()]
+
     returned_targets = {}
 
     # construct substitution command

@@ -1,24 +1,37 @@
 subinclude("//template:template")
 
 template_files(
-    name = "generated_files",
-    srcs = ["templated.yaml"],
+    name = "generated_files_dict",
+    srcs = ["template_dict.yaml"],
     substitutions = {
-        "//template/test:single_line":"value",
-        ":single_line_local":"value",
-        "//template/test:concatenated":"value",
-        "//template/test:special_chars":"value",
+        "//template/test:single_line":"//template/test:single_line_value",
+        ":single_line_local":":single_line_local_value",
+        "//template/test:concatenated":"//template/test:concatenated_value",
+        "//template/test:special_chars":"//template/test:special_chars_value",
     },
-    outs = ["generated.yaml"],
+    outs = ["generated_dict.yaml"],
+    visibility = ["//template/test/..."],
+)
+
+template_files(
+    name = "generated_files_list",
+    srcs = ["template_list.yaml"],
+    substitutions = [
+        "//template/test:single_line_value",
+        ":single_line_local_value",
+        "//template/test:concatenated_value",
+        "//template/test:special_chars_value",
+    ],
+    outs = ["generated_list.yaml"],
     visibility = ["//template/test/..."],
 )
 
 python_test(
     name = "template_test",
     data = ["expected.yaml",
-            ":generated_files"],
+            ":generated_files_dict",
+            ":generated_files_list"],
     srcs = ["template_test.py"],
-    deps = [":generated_files"],
 )
 
 template_value(
