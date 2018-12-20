@@ -55,17 +55,15 @@ def template_files(name:str, srcs:list, subs, outs:list=None, visibility:list=No
             outs=[out],
             cmd=[f"$TOOLS $SRCS | {replacement_command} > $OUT"],
             tools=['cat'],
-            deps= replacement_targets,
+            deps=replacement_targets,
         )
 
-    files = filegroup(
+    return filegroup(
         name=name,
         srcs=rules,
         visibility=visibility,
         labels=labels,
     )
-    returned_targets['FILES'] = files
-    return returned_targets
 
 def _replacement_escaped(replacements):
     return [f'$(cat $(location {r})' + r"| sed -e 's|[|\/&]|\\&|g ')" for r in replacements]
