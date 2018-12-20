@@ -23,8 +23,6 @@ def template_files(name:str, srcs:list, subs, outs:list=None, visibility:list=No
         replacement_targets = [canonicalise(target) for target in subs]
         searches = _search_escaped(replacement_targets) # in this case the search string is same as target
 
-    returned_targets = {}
-
     replacements = _replacement_escaped(replacement_targets)
 
     replace_in_single_quotes = ' '.join([
