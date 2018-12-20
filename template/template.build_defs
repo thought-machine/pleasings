@@ -26,11 +26,11 @@ def template_files(name:str, srcs:list, subs, outs:list=None, visibility:list=No
     replacements = _replacement_escaped(replacement_targets)
 
     replace_in_single_quotes = ' '.join([
-        _sed_for_single_quotes(search, replacement) for search, replacement in sorted(zip(searches, replacements))
+        _sed_for_single_quotes(search, replacement) for search, replacement in zip(searches, replacements)
     ])
 
     replace_break_at_end = ' '.join([
-        _sed_for_break(search, replacement) for search, replacement in sorted(zip(searches, replacements))
+        _sed_for_break(search, replacement) for search, replacement in zip(searches, replacements)
     ])
     replacement_command = f'sed {replace_in_single_quotes} | sed {replace_break_at_end}'
 
