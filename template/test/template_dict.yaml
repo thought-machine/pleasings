@@ -3,7 +3,7 @@ tests:
   - description: "single line template"
     value: '//template/test:single_line'
   - description: "single line local"
-    value: '//template/test:single_line_local'
+    value: ':single_line_local'
   - description: "single line concatenate"
     value: '//template/test:single_line' '//template/test:concatenated'
   - description: "single line concatenate with separator"

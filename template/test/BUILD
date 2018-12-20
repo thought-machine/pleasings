@@ -3,11 +3,12 @@ subinclude("//template:template")
 template_files(
     name = "generated_files_dict",
     srcs = ["template_dict.yaml"],
-    substitutions = {
+    subs = {
         "//template/test:single_line":"//template/test:single_line_value",
         ":single_line_local":":single_line_local_value",
         "//template/test:concatenated":"//template/test:concatenated_value",
         "//template/test:special_chars":"//template/test:special_chars_value",
+        "random_string_in_quotes": "//template/test:single_line_value",
     },
     outs = ["generated_dict.yaml"],
     visibility = ["//template/test/..."],
@@ -16,7 +17,7 @@ template_files(
 template_files(
     name = "generated_files_list",
     srcs = ["template_list.yaml"],
-    substitutions = [
+    subs = [
         "//template/test:single_line_value",
         ":single_line_local_value",
         "//template/test:concatenated_value",
