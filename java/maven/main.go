@@ -18,7 +18,7 @@ import (
 
 	"github.com/peterebden/go-cli-init"
 
-	"github.com/thought-machine/pleasings/java/maven/maven"
+	"java/maven/maven"
 )
 
 var opts = struct {
@@ -38,7 +38,7 @@ var opts = struct {
 	} `positional-args:"yes" required:"yes"`
 }{
 	Usage: `
-please_maven is a tool shipped with Please that communicates with Maven repositories
+please_maven is an addon tool for Please that communicates with Maven repositories
 to work out what files to download given a package spec.
 
 Example usage:
@@ -52,7 +52,7 @@ available and what licence the package is under, if it can find it.
 
 Note that it does not do complex cross-package dependency resolution and doesn't
 necessarily support every aspect of Maven's pom.xml format, which is pretty hard
-to fully grok. The goal is to provide a backend to Please's built-in maven_jars
+to fully grok. The goal is to provide a backend to facilitate the maven_jars
 rule to make adding dependencies easier.
 `,
 }
