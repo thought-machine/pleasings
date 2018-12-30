@@ -56,6 +56,7 @@ go_get(
 go_get(
     name = "go-flags",
     get = "github.com/jessevdk/go-flags",
+    revision = "v1.4.0",
 )
 
 go_get(
@@ -79,4 +80,40 @@ go_get(
         "vendor/github.com/pmezard/go-difflib/difflib",
     ],
     revision = "v1.2.2",
+)
+
+go_get(
+    name = "cli-init",
+    get = "github.com/peterebden/go-cli-init",
+    revision = "v1.0.0",
+    deps = [
+        ":logging",
+        ":terminal",
+        ":go-flags",
+    ],
+)
+
+go_get(
+    name = "logging",
+    get = "gopkg.in/op/go-logging.v1",
+    revision = "b2cb9fa56473e98db8caba80237377e83fe44db5",
+)
+
+go_get(
+    name = "terminal",
+    get = "golang.org/x/crypto/ssh/terminal",
+    revision = "505ab145d0a99da450461ae2c1a9f6cd10d1f447",
+    deps = [":unix"],
+)
+
+go_get(
+    name = "unix",
+    get = "golang.org/x/sys/unix",
+    revision = "1b2967e3c290b7c545b3db0deeda16e9be4f98a2",
+)
+
+go_get(
+    name = "queue",
+    get = "github.com/Workiva/go-datastructures/queue",
+    revision = "v1.0.50",
 )
