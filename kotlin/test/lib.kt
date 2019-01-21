@@ -1,4 +1,4 @@
-package test
+package build.please.kotlin.test
 
 val questions: Map<String, Int> = hashMapOf(
     "What do you get if you multiply six by nine" to 42,

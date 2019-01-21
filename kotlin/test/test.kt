@@ -1,4 +1,4 @@
-package test
+package build.please.kotlin.test
 
 import kotlin.test.assertEquals
 import org.junit.Test as test
