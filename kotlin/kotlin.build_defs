@@ -1,0 +1,149 @@
+def kotlin_library(name:str, srcs:list=None, resources:list=None, resources_root:str=None,
+                  deps:list=[], exported_deps:list=None, visibility:list=None,
+                  test_only:bool&testonly=False, kotlinc_flags:list=[], labels:list=[]):
+
+    """Compiles kotlin source code to a .jar which can be collected by other rules.
+
+    Args:
+      name (str): Name of the rule
+      srcs (list): kotlin source files to compile for this library
+      resources (list): Resources to include in the .jar file
+      resources_root (str): Root directory to treat resources relative to; ie. if we are in
+                            //project/main/resources and resources_root is project/main then
+                            the resources in the .jar will be in the subdirectory 'resources'.
+      deps (list): Dependencies of this rule.
+      exported_deps (list): Exported dependencies, ie. dependencies that other things depending on this
+                            rule will also receive when they're compiling. This is quite important for
+                            Java; any dependency that forms part of the public API for your classes
+                            should be an exported dependency.
+      visibility (list): Visibility declaration of this rule.
+      test_only (bool): If True, this rule can only be depended on by tests.
+      kotlinc_flags (list): List of flags passed to javac.
+      labels (list): Additional labels to apply to this rule.
+    """
+    if srcs:
+        if resources:
+            res_rule = kotlin_library(
+                name='_%s#res' % name,
+                resources=resources,
+                resources_root=resources_root,
+                test_only=test_only,
+            )
+            deps.append(res_rule)
+
+        kotlinc_flags = " ".join(kotlinc_flags) or ""
+
+        kotlinc_command = 'mkdir -p _tmp/META-INF && $TOOLS_KOTLINC %s -classpath .:%s -d _tmp %s' % (
+            kotlinc_flags,
+            r'`find $TMP_DIR -name "*.jar" | tr \\\\n :`',
+            '$SRCS_SRCS' if srcs else '`find $SRCS_SRCS -name "*.kotlin"`',
+        )
+
+        cmd = ' && '.join([
+            kotlinc_command,
+            'find _tmp -name "*.class" | sed -e "s|_tmp/|${PKG} |g" -e "s/\\.class/.kotlin/g" | sort > _tmp/META-INF/please_sourcemap',
+            'cd _tmp',
+            '$TOOLS_JARCAT z -d -o $OUT -i .',
+        ])
+
+        return build_rule(
+            name = name,
+            srcs = {
+                "SRCS": srcs,
+                "RES": resources
+            },
+            deps = deps,
+            exported_deps = exported_deps,
+            outs = [f"{name}.jar"],
+            visibility = visibility,
+            cmd = cmd,
+            building_description = "Compiling...",
+            requires = ['kotlin'],
+            labels = labels,
+            test_only = test_only,
+            tools = {
+                'kotlinc': [CONFIG.KOTLINC_TOOL],
+                'jarcat': [CONFIG.JARCAT_TOOL],
+            },
+        )
+    elif resources:
+        # Can't run kotlinc since there are no kotlin files.
+        if resources_root:
+            cmd = 'cd ${PKG}/%s && $TOOL z -d -o ${OUT} -i .' % resources_root
+        else:
+            cmd = '$TOOL z -d -o ${OUTS} -i .'
+        return build_rule(
+            name = name,
+            srcs = resources,
+            deps = deps,
+            exported_deps = exported_deps,
+            outs = [name + '.jar'],
+            visibility = visibility,
+            cmd = cmd,
+            building_description = "Linking...",
+            requires = ['java'],
+            labels  =  labels,
+            test_only = test_only,
+            tools = [CONFIG.JARCAT_TOOL],
+        )
+
+
+def kotlin_binary(name:str, main_class:str=None, out:str=None, srcs:list=None, deps:list=[],
+                 data:list=None, visibility:list=None, self_executable:bool=True,
+                 jvm_args:str='', manifest:str=None):
+    """Compiles a .jar from a set of kotlin libraries.
+
+    Args:
+      name (str): Name of the rule.
+      main_class (str): Main class to set in the manifest.
+      out (str): Name of output .jar file. Defaults to name + .jar.
+      srcs (list): Source files to compile.
+      deps (list): Dependencies of this rule.
+      data (list): Runtime data files for this rule.
+      visibility (list): Visibility declaration of this rule.
+      jvm_args (str): Arguments to pass to the JVM in the run script.
+      self_executable (bool): True to make the jar self executable.
+      manifest (str): Manifest file to put into the jar. Can't be passed at the same time as
+                      main_class.
+    """
+    if main_class and manifest:
+        raise ParseError("Can't pass both main_class and manifest to kotlin_binary")
+    if srcs:
+        lib_rule = kotlin_library(
+            name = f'_{name}#lib',
+            srcs = srcs,
+            deps = deps,
+        )
+        deps.append(lib_rule)
+
+    if self_executable and not preamble:
+        preamble = '#!/bin/sh\nexec java %s -jar $0 ${@}' % jvm_args
+
+    cmd = '$TOOL z -i . -o ${OUTS} -j'
+    if main_class:
+        cmd += f' -m "{main_class}"'
+    if preamble:
+        cmd += f" -p '{preamble}'"
+    if manifest:
+        cmd += ' --manifest "$SRCS"'
+
+    build_rule(
+        name = name,
+        deps = deps,
+        data = data,
+        outs = [out or name + '.jar'],
+        srcs = [manifest],
+        cmd = cmd,
+        needs_transitive_deps = True,
+        output_is_complete = True,
+        binary = True,
+        building_description = "Creating jar...",
+        requires = ['kotlin'],
+        visibility = visibility,
+        tools = [CONFIG.KOTLIN_TOOL],
+        labels = None if self_executable else ['java_non_exe'],
+    )
+
+
+CONFIG.setdefault('KOTLINC_TOOL', 'kotlinc')
+CONFIG.setdefault('KOTLIN_LIBRARY', '//third_party/kotlin:kotlin-library')
