@@ -8,5 +8,9 @@ kotlin_library(
 kotlin_test(
     name = "test",
     srcs = ["test.kt"],
-    deps = [":lib"],
+    deps = [
+        ":lib",
+        "//third_party/java:junit",
+        "//third_party/kotlin:kotlin_test",
+    ],
 )
