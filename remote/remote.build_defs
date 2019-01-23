@@ -122,12 +122,23 @@ def git_repo(name, repo, revision='master', files=None, hash=None, visibility=No
         find_query = ' -or '.join([f'-name {f}' for f in files])
         cmd = ' && '.join([cmd, f'find {name} {find_query}'])
 
-    build_rule(
-        name = name,
-        cmd = cmd,
-        post_build=lambda name, output: [add_out(name, out) for out in output],
-        hashes = [hash] if hash else None,
-        visibility = visibility,
-        test_only = test_only,
-        sandbox = False,
-    )
+    if files :
+      build_rule(
+          name = name,
+          cmd = cmd,
+          post_build=lambda name, output: [add_out(name, out) for out in output if out],
+          hashes = [hash] if hash else None,
+          visibility = visibility,
+          test_only = test_only,
+          sandbox = False,
+      )
+    else:
+      build_rule(
+          name = name,
+          cmd = cmd,
+          outs = [name],
+          hashes = [hash] if hash else None,
+          visibility = visibility,
+          test_only = test_only,
+          sandbox = False,
+      )
