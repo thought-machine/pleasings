@@ -6,24 +6,24 @@ def scala_library(name:str, srcs:list=None, src_dir:str=None, resources:list=Non
 
     """Compiles scala source code to a .jar which can be collected by other rules.
 
-  Args:
-    name (str): Name of the rule
-    srcs (list): scala source files to compile for this library
-    src_dir (str): Directory containing scala source files to compile.
-    resources (list): Resources to include in the .jar file
-    resources_root (str): Root directory to treat resources relative to; ie. if we are in
-                          //project/main/resources and resources_root is project/main then
-                          the resources in the .jar will be in the subdirectory 'resources'.
-    deps (list): Dependencies of this rule.
-    exported_deps (list): Exported dependencies, ie. dependencies that other things depending on this
-                          rule will also receive when they're compiling. This is quite important for
-                          Java; any dependency that forms part of the public API for your classes
-                          should be an exported dependency.
-    visibility (list): Visibility declaration of this rule.
-    test_only (bool): If True, this rule can only be depended on by tests.
-    scalac_flags (list): List of flags passed to javac.
-    labels (list): Additional labels to apply to this rule.
-  """
+    Args:
+      name (str): Name of the rule
+      srcs (list): scala source files to compile for this library
+      src_dir (str): Directory containing scala source files to compile.
+      resources (list): Resources to include in the .jar file
+      resources_root (str): Root directory to treat resources relative to; ie. if we are in
+                            //project/main/resources and resources_root is project/main then
+                            the resources in the .jar will be in the subdirectory 'resources'.
+      deps (list): Dependencies of this rule.
+      exported_deps (list): Exported dependencies, ie. dependencies that other things depending on this
+                            rule will also receive when they're compiling. This is quite important for
+                            Java; any dependency that forms part of the public API for your classes
+                            should be an exported dependency.
+      visibility (list): Visibility declaration of this rule.
+      test_only (bool): If True, this rule can only be depended on by tests.
+      scalac_flags (list): List of flags passed to javac.
+      labels (list): Additional labels to apply to this rule.
+    """
 
     if srcs and src_dir:
         raise ParseError('You cannot pass both srcs and src_dir to scala_library')
