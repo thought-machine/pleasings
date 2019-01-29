@@ -116,7 +116,7 @@ def kotlin_binary(name:str, main_class:str=None, out:str=None, srcs:list=None, d
         )
         deps.append(lib_rule)
 
-    if self_executable and not preamble:
+    if self_executable:
         preamble = '#!/bin/sh\nexec java %s -jar $0 ${@}' % jvm_args
 
     build_rule(
@@ -132,7 +132,7 @@ def kotlin_binary(name:str, main_class:str=None, out:str=None, srcs:list=None, d
         building_description = "Creating jar...",
         requires = ['kotlin'],
         visibility = visibility,
-        tools = [CONFIG.KOTLIN_TOOL],
+        tools = {'jarcat': [CONFIG.JARCAT_TOOL]},
         labels = None if self_executable else ['java_non_exe'],
     )
 

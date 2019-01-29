@@ -5,6 +5,11 @@ kotlin_library(
     srcs = ["lib.kt"],
 )
 
+kotlin_binary(
+    name = "bin",
+    deps = [":lib"],
+)
+
 kotlin_test(
     name = "test",
     srcs = ["test.kt"],
