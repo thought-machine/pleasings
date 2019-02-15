@@ -141,13 +141,14 @@ def _grpc_gateway_def():
     d = grpc_languages().get('go').copy()
     d['extensions'] = {'go': ['.pb.go', '.pb.gw.go']}
     d['protoc_flags'] = [
-        '--go_out=$TMP_DIR',
+        '--go_out=paths=source_relative:$TMP_DIR',
         '--plugin=protoc-gen-go=${TOOLS_GO%% *}',
         '--plugin=protoc-gen-grpc-gateway=${TOOLS_GO#* }',
-        '--grpc-gateway_out=logtostderr=true:$TMP_DIR',
+        '--grpc-gateway_out=paths=source_relative,logtostderr=true:$TMP_DIR',
     ]
     d['tools'] = [CONFIG.PROTOC_GO_PLUGIN, CONFIG.GRPC_GATEWAY_PLUGIN]
     d['deps'] = [CONFIG.PROTO_GO_DEP, CONFIG.GRPC_GO_DEP, CONFIG.GRPC_GATEWAY_GO_DEP, CONFIG.GRPC_GATEWAY_DEP]
+    d['pre_build'] = _map_go_paths
     return d
 
 
@@ -160,8 +161,17 @@ def _swagger_def():
             srcs = srcs,
             deps = deps,
             test_only = test_only,
-            requires = ['swagger'],
+            requires = ['swagger', 'proto'],
         ),
         protoc_flags = ['--swagger_out=$TMP_DIR', '--plugin=protoc-gen-swagger=$TOOLS_SWAGGER'],
         tools = [CONFIG.GRPC_SWAGGER_PLUGIN],
     )
+
+
+def _map_go_paths(rule_name):
+    """This is a clone of the (inaccessible) builtin to map grpc-gateway paths to Go paths."""
+    mapping = ',M'.join(get_labels(rule_name, 'proto:go-map:'))
+    cmd = get_command(rule_name)
+    new_cmd = cmd.replace('--go_out=paths=source_relative:', f'--go_out=paths=source_relative,plugins=grpc,M{mapping}:')
+    new_cmd = new_cmd.replace('--grpc-gateway_out=paths=source_relative', f'--grpc-gateway_out=paths=source_relative,M{mapping}')
+    set_command(rule_name, new_cmd)
