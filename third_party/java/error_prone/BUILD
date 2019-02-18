@@ -1,5 +1,7 @@
 package(default_visibility = ["PUBLIC"])
 
+subinclude("//java:maven_jars")
+
 maven_jars(
     name = "error_prone",
     id = "com.google.errorprone:error_prone_core:2.3.1",
