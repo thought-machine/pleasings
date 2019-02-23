@@ -2,7 +2,7 @@ cc_library(
     name = "unittest_main",
     srcs = ["unittest_main.cc"],
     visibility = ["PUBLIC"],
-    deps = ["@unittest_cpp"],
+    deps = ["///third_party/cc/unittest_cpp"],
 )
 
 filegroup(
