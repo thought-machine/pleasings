@@ -10,3 +10,9 @@ filegroup(
     srcs = ["thinlto.build_defs"],
     visibility = ["PUBLIC"],
 )
+
+filegroup(
+    name = "embed_binary",
+    srcs = ["cc_embed_binary.build_defs"],
+    visibility = ["PUBLIC"],
+)
