@@ -74,7 +74,7 @@ def maven_jars(name:str, id:str='', ids:list=[], repository:str|list=None, exclu
         cmd='$TOOL -s %s %s %s %s' % (repo_flags, ' '.join(ids), exclusions, options),
         post_build=create_maven_deps,
         building_description='Finding dependencies...',
-        tools=['//java/maven'],
+        tools=[CONFIG.MAVEN_TOOL],
         sandbox=False,
     )
     if combine:
@@ -149,3 +149,6 @@ def _parse_maven_artifact(id, sources=True, licences=None):
     else:
         raise ParseError(f'Unknown artifact format: {id} (should be group:artifact:version)')
     return group, artifact, version, sources, licences
+
+
+CONFIG.setdefault('MAVEN_TOOL', '//java/maven')

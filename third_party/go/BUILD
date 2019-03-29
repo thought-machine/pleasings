@@ -117,3 +117,11 @@ go_get(
     get = "github.com/Workiva/go-datastructures/queue",
     revision = "v1.0.50",
 )
+
+go_get(
+    name = "go-bindata",
+    binary = True,
+    get = "github.com/kevinburke/go-bindata/...",
+    revision = "46eb4c183bfc1ebb527d9d19bcded39476302eb8",
+    strip = ["testdata"],
+)
