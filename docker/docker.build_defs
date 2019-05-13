@@ -39,7 +39,12 @@ def docker_image(name:str, srcs:list=[], image:str=None, version:str='',
     )
 
     # The FQN defines a unique hash for the image.
-    version = version if version != '' or version != None  else  f'$(echo $(hash {tarball}))'
+    if CONFIG.HOSTOS == 'linux':
+        version = version or f'$(echo $(hash {tarball}) | sha256sum - | cut -f1 -d" ")'
+    elif CONFIG.HOSTOS == 'darwin':
+        version = version or f'$(echo $(hash {tarball}) | shasum -a 256 - | cut -f1 -d" ")'
+    else:
+        version = version or 'no_idea_how_to_compute_version_on_this_host'
     fqn = build_rule(
         name = f'{name}_fqn',
         srcs = [tarball],
