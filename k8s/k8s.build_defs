@@ -1,3 +1,4 @@
+
 """Rules for building Kubernetes objects."""
 
 
@@ -44,9 +45,11 @@ def k8s_config(name:str, srcs:list, containers:list=[], params:dict=None, visibi
 
     # Now that we have a collection of files, each containing a container name + label, we can
     # create a multi-expression sed command to replace a build target with the actual containers.
+    exports = [f'export {k}={v}' for k,v in params.items()] if params else []
+    replacement_command = 'cat'
+    envsubst_vars = ",".join(['${%s}' % k for k in params.keys()] if params else [])
+    check_rule = None
     if containers:
-        exports = [f'export {k}={v}' for k,v in params.items()] if params else []
-        envsubst_vars = ",".join(['${%s}' % k for k in params.keys()] if params else [])
         # Pseudo build rule to check that the specified containers exist in the k8s files.
         # Has to be a separate rule because containers might only occur in one of the files.
         check_rule = build_rule(
@@ -62,28 +65,28 @@ def k8s_config(name:str, srcs:list, containers:list=[], params:dict=None, visibi
         ])
         replacement_command = f'sed {subcommands}'
 
-        for src in srcs:
-            cleaned_src = src.replace('/', '_').replace(':', '_')
-            src_tag = cleaned_src.replace('.', '_')
-            src_genrule_name = f'_{name}#{src_tag}'
-            if cleaned_src.endswith('_yaml'):
-                cleaned_src = cleaned_src[:-5] + '.yaml'
-            rules.append(f':{src_genrule_name}')
-            genrule(
-                name = src_genrule_name,
-                srcs = [src],
-                outs = ['templated_' + cleaned_src],
-                cmd = exports + [f"cat $SRCS | {replacement_command} | envsubst '{envsubst_vars}' > $OUT"],
-                deps = fqns + [check_rule],
-            )
+    for src in srcs:
+        cleaned_src = src.replace('/', '_').replace(':', '_')
+        src_tag = cleaned_src.replace('.', '_')
+        src_genrule_name = f'_{name}#{src_tag}'
+        if cleaned_src.endswith('_yaml'):
+            cleaned_src = cleaned_src[:-5] + '.yaml'
+        rules.append(f':{src_genrule_name}')
+        genrule(
+            name = src_genrule_name,
+            srcs = [src],
+            outs = ['templated_' + cleaned_src],
+            cmd = exports + [f"cat $SRCS | {replacement_command} | envsubst '{envsubst_vars}' > $OUT"],
+            deps = fqns + [check_rule if check_rule else None],
+        )
 
-    else:
-        # We need this to be a filegroup so the files get built into plz-out.
-        rules = [filegroup(
-            name = name,
-            tag = 'srcs',
-            srcs = srcs,
-        )]
+    # else:
+    #     # We need this to be a filegroup so the files get built into plz-out.
+    #     rules = [filegroup(
+    #         name = name,
+    #         tag = 'srcs',
+    #         srcs = srcs,
+    #     )]
 
     files = filegroup(
         name = name,
