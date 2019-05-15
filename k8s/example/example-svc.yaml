@@ -5,6 +5,7 @@ metadata:
   labels:
     app: example
     project: please
+    example-parameter: ${EXAMPLE_PARAM}
 spec:
   type: ClusterIP
   ports:
