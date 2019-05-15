@@ -80,14 +80,6 @@ def k8s_config(name:str, srcs:list, containers:list=[], params:dict=None, visibi
             deps = fqns + [check_rule if check_rule else None],
         )
 
-    # else:
-    #     # We need this to be a filegroup so the files get built into plz-out.
-    #     rules = [filegroup(
-    #         name = name,
-    #         tag = 'srcs',
-    #         srcs = srcs,
-    #     )]
-
     files = filegroup(
         name = name,
         srcs = rules,
