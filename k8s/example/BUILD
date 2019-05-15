@@ -6,5 +6,8 @@ k8s_config(
         "example.yaml",
         "example-svc.yaml",
     ],
+    params = {
+        'EXAMPLE_PARAM' : 'test',
+    },
     containers = ["//docker/example:image"],
 )
