@@ -51,7 +51,16 @@ def proto_library(name:str, srcs:list, deps:list=[], visibility:list=None, label
                       if plugin['use_file_names'] else []
             for language, plugin in lang_plugins for ext_lang, exts in plugin['extensions'].items()}
     flags = [' '.join(plugin['protoc_flags']) for plugin in plugins] + protoc_flags
-    tools = {lang: plugin.get('tools') for lang, plugin in lang_plugins}
+    tools = {}
+    for lang, plugin in lang_plugins:
+        tls = plugin.get('tools')
+        if isinstance(tls, list):
+            tools[lang] = tls 
+        elif isinstance(tls, dict):
+            for k in tls.keys():
+                tools[k] = tls[k]
+        else:
+            log.fatal('tools are not instance of list or dict')
     tools['protoc'] = [CONFIG.PROTOC_TOOL]
     cmd = '$TOOLS_PROTOC ' + ' '.join(flags)
     if root_dir:
@@ -184,7 +193,7 @@ def _go_path_mapping(grpc):
 
 
 def proto_language(language:str, extensions:list|dict, func:function, use_file_names:bool=True, protoc_flags:list=None,
-                   tools:list=None, deps:list=None, pre_build:function=None, proto_language:str=''):
+                   tools:list|dict=None, deps:list=None, pre_build:function=None, proto_language:str=''):
     """Returns the definition of how to build a particular language for proto_library or grpc_library.
 
     Args:
@@ -201,7 +210,7 @@ def proto_language(language:str, extensions:list|dict, func:function, use_file_n
             declarations in the proto file. If False we'll attempt to detect them.
       protoc_flags (list): Additional flags for the protoc invocation for this rule.
       tools (list): Additional tools to apply to this rule.
-      deps (list): Additional dependencies to apply to this rule.
+      deps (list|dict): Additional dependencies to apply to this rule.
       pre_build (function): Definition of pre-build function to apply to this language.
       proto_language (str): Name of the language (as protoc would name it). Defaults to the same as language.
     """
