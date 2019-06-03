@@ -5,3 +5,10 @@ filegroup(
     srcs = ['grpc_gateway.build_defs'],
     visibility = ['PUBLIC'],
 )
+
+# this is a fork of the original rules that exist in please 
+filegroup(
+    name = 'proto',
+    srcs = ['proto_rules.build_defs'],
+    visibility = ['PUBLIC'],
+)
