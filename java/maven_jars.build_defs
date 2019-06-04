@@ -71,7 +71,7 @@ def maven_jars(name:str, id:str='', ids:list=[], repository:str|list=None, exclu
     repo_flags = ' '.join(['-r ' + repo for repo in repos])
     build_rule(
         name='_%s#deps' % name,
-        cmd='$TOOL -s %s %s %s %s' % (repo_flags, ' '.join(ids), exclusions, options),
+        cmd='$TOOL %s %s %s %s' % (repo_flags, ' '.join(ids), exclusions, options),
         post_build=create_maven_deps,
         building_description='Finding dependencies...',
         tools=[CONFIG.MAVEN_TOOL],
