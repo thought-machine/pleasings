@@ -17,19 +17,18 @@ import (
 	"strings"
 
 	"github.com/peterebden/go-cli-init"
-
-	"java/maven/maven"
+	"github.com/thought-machine/pleasings/java/maven/maven"
 )
 
 var opts = struct {
 	Usage        string
-	Verbosity    cli.Verbosity `short:"v" long:"verbosity" default:"warning" description:"Verbosity of output"`
+	Verbosity    cli.Verbosity `short:"v" long:"verbosity" default:"warning" description:"Verbosity of output (higher number = more output)"`
 	Repositories []string      `short:"r" long:"repository" description:"Location of Maven repo" default:"https://repo1.maven.org/maven2"`
 	Android      bool          `short:"a" long:"android" description:"Adds https://maven.google.org to repositories for Android deps."`
 	Exclude      []string      `short:"e" long:"exclude" description:"Artifacts to exclude from download"`
 	Indent       bool          `short:"i" long:"indent" description:"Indent stdout lines appropriately"`
 	Optional     []string      `short:"o" long:"optional" description:"Optional dependencies to fetch"`
-	Short        bool          `short:"s" long:"short" description:"Prints compact output (not full build rules)"`
+	BuildRules   bool          `short:"b" long:"build_rules" description:"Print individual maven_jar build rules for each artifact"`
 	NumThreads   int           `short:"n" long:"num_threads" default:"10" description:"Number of concurrent fetches to perform"`
 	LicenceOnly  bool          `short:"l" long:"licence_only" description:"Fetch only the licence of the given package from Maven"`
 	Graph        string        `short:"g" long:"graph" description:"Graph file, as exported from plz query graph. If given then existing dependencies in it will be integrated when using --build_rules."`
@@ -38,7 +37,7 @@ var opts = struct {
 	} `positional-args:"yes" required:"yes"`
 }{
 	Usage: `
-please_maven is an addon tool for Please that communicates with Maven repositories
+please_maven is a tool shipped with Please that communicates with Maven repositories
 to work out what files to download given a package spec.
 
 Example usage:
@@ -52,7 +51,7 @@ available and what licence the package is under, if it can find it.
 
 Note that it does not do complex cross-package dependency resolution and doesn't
 necessarily support every aspect of Maven's pom.xml format, which is pretty hard
-to fully grok. The goal is to provide a backend to facilitate the maven_jars
+to fully grok. The goal is to provide a backend to Please's built-in maven_jars
 rule to make adding dependencies easier.
 `,
 }
@@ -93,6 +92,6 @@ func main() {
 			}
 		}
 	} else {
-		fmt.Println(strings.Join(maven.AllDependencies(f, opts.Args.Artifacts, opts.NumThreads, opts.Indent, !opts.Short, loadGraph(opts.Graph)), "\n"))
+		fmt.Println(strings.Join(maven.AllDependencies(f, opts.Args.Artifacts, opts.NumThreads, opts.Indent, opts.BuildRules, loadGraph(opts.Graph)), "\n"))
 	}
 }

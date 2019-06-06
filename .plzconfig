@@ -6,6 +6,9 @@ path = /usr/local/bin:/usr/bin:/bin
 ; It's quite likely that anyone using Rust will have it here.
 path = ~/.cargo/bin
 
+[go]
+importpath = github.com/thought-machine/pleasings
+
 [buildconfig]
 grm-test-main = //grm:test_main
 grpc-gateway-plugin = //third_party/go:protoc-gen-grpc-gateway
