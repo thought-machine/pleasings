@@ -42,7 +42,7 @@ def yarn_library(name, version, out=None, hashes=None, test_only=False, patches=
         labels = ['yarn:%s@%s' % (name, version)],
     )
 
-def yarn_binary(name:str,package:str, deps:list=None)
+def yarn_binary(name:str,package:str, deps:list=None):
     bundle = genrule(
         name = name, 
         tag = 'bundle',
