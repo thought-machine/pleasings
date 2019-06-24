@@ -14,7 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/thought-machine/please/src/cli"
+	"github.com/peterebden/go-cli-init"
 	"sort"
 )
 

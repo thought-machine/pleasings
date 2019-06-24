@@ -21,7 +21,7 @@ go_test(
     data = ["test_data"],
     deps = [
         ":maven",
-        "//src/cli",
+        "//third_party/go:cli-init",
         "//third_party/go:testify",
     ],
 )
