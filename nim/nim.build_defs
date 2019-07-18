@@ -1,0 +1,17 @@
+def nim_binary(name:str, main:str, srcs:list=[], out:str=None, test_only:bool=False, visibility:list=None, deps:list=[]):
+    out = out or name
+
+    return build_rule(
+        name = name,
+        srcs = srcs + [main],
+        outs = [out],
+        tools = [CONFIG.NIM_TOOL],
+        cmd = "$TOOL -o:" + out + " c $PKG_DIR/" + main,
+        deps = deps,
+        requires = ["nim"],
+        test_only = test_only,
+        binary = True,
+        visibility = visibility,
+    )
+
+CONFIG.setdefault('NIM_TOOL', 'nim')

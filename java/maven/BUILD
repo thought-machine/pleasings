@@ -1,5 +1,5 @@
 go_binary(
-    name = "maven",
+    name = "please_maven",
     srcs = ["main.go"],
     visibility = ["PUBLIC"],
     deps = [

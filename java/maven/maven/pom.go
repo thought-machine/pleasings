@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -225,7 +226,12 @@ func (pom *PomXML) replaceVariables(s string) string {
 func (pom *PomXML) expandProperties(prop string) string {
 	val, present := pom.PropertiesMap[prop]
 	if !present {
-		log.Fatalf("Failed property lookup %s: %s", prop, pom.PropertiesMap)
+		keys := []string{}
+		for key := range pom.PropertiesMap {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		log.Fatalf("Failed property lookup for %s. Known properties: %s", prop, strings.Join(keys, ", "))
 	}
 	// Some property values can themselves be more properties...
 	return pom.replaceVariables(val)
@@ -254,12 +260,14 @@ func (pom *PomXML) Unmarshal(f *Fetch, response []byte) {
 	for _, prop := range pom.Properties.Property {
 		pom.PropertiesMap[prop.XMLName.Local] = prop.Value
 	}
-	// There are also some properties that aren't described by the above - "project" is a bit magic.
+	// There are also some properties that aren't described by the above - see http://maven.apache.org/pom.html#Properties
 	pom.PropertiesMap["groupId"] = pom.GroupID
 	pom.PropertiesMap["artifactId"] = pom.ArtifactID
 	pom.PropertiesMap["version"] = pom.Version
 	pom.PropertiesMap["project.groupId"] = pom.GroupID
 	pom.PropertiesMap["project.version"] = pom.Version
+	// #27: This doesn't seem to be documented, but some projects appear to rely on it.
+	pom.PropertiesMap["pom.groupId"] = pom.GroupID
 	if pom.Parent.ArtifactID != "" {
 		if pom.Parent.GroupID == pom.GroupID && pom.Parent.ArtifactID == pom.ArtifactID {
 			log.Fatalf("Circular dependency: %s:%s:%s specifies itself as its own parent", pom.GroupID, pom.ArtifactID, pom.Version)

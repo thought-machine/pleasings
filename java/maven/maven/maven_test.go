@@ -14,7 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/thought-machine/please/src/cli"
+	"github.com/peterebden/go-cli-init"
 	"sort"
 )
 
@@ -761,7 +761,7 @@ func TestMain(m *testing.M) {
 	grpc = []Artifact{{}}
 	errorProne[0].FromID("com.google.errorprone:error_prone_core:2.0.14")
 	grpc[0].FromID("io.grpc:grpc-all:1.1.2")
-	server = httptest.NewServer(http.FileServer(http.Dir("tools/please_maven/maven/test_data")))
+	server = httptest.NewServer(http.FileServer(http.Dir("java/maven/maven/test_data")))
 	ret := m.Run()
 	server.Close()
 	os.Exit(ret)
