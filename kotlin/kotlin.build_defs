@@ -138,7 +138,7 @@ def kotlin_binary(name:str, main_class:str=None, out:str=None, srcs:list=None, d
 
 
 def kotlin_test(name:str, srcs:list, resources:list=None, data:list=None, deps:list=None, worker:str='',
-              labels:list&features&tags=[], visibility:list=None, flags:str='', container:bool|dict=False,
+              labels:list&features&tags=[], visibility:list=None, flags:str='',
               sandbox:bool=None, timeout:int=0, flaky:bool|int=0, test_outputs:list=None,
               test_package:str=CONFIG.DEFAULT_TEST_PACKAGE, jvm_args:str=''):
     """Defines a Kotlin test.
@@ -190,7 +190,6 @@ def kotlin_test(name:str, srcs:list, resources:list=None, data:list=None, deps:l
         outs = [name + '.jar'],
         deps = deps,
         visibility = visibility,
-        container = container,
         test_sandbox = sandbox,
         labels = labels,
         test_timeout = timeout,
