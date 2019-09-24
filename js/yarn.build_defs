@@ -42,5 +42,45 @@ def yarn_library(name, version, out=None, hashes=None, test_only=False, patches=
         labels = ['yarn:%s@%s' % (name, version)],
     )
 
+def yarn_binary(name:str, package:str, deps:list=None, visibility:list=None, labels:list = None):
+    """Create a binary executable from a yarn bundle.
 
+    Args:
+        name (str): Name of the rule that must be found in the bin section in package.json
+        package (str): a yarn_library that contain the node script that we are going to use 
+        deps (list): list of yarn dependencies that will be copied in node_modules dir of the package
+        labels (list): a list of labels that will be used to mark the returning targets
+        visibility (list): Visibility declaration for this rule.
+
+    """
+    bundle = genrule(
+        name = '_'+name+'#bundle', 
+        srcs = [package],
+        deps = deps,
+
+        cmd = [
+            'mkdir -p $OUT',
+            f'cp -Rf $(location {package})/* $OUT',
+            'mkdir -p $OUT/node_modules'
+        ]+[f'cp -rf $(location {d}) $OUT/node_modules' for d in deps],
+        outs = [name]
+    )
+    
+    return genrule(
+        name = name,
+        cmd = [
+            'echo "#!/usr/bin/env bash" >> $OUT',
+            f'echo "${TOOLS_NODE} $(out_location {bundle})/$(${TOOLS_JQ} -r \'.bin["{name}"]\' $(out_location {bundle})/package.json) $@" >> $OUT',
+        ],
+        tools = {
+            'node':[CONFIG.NODE_TOOL],
+            'jq': [CONFIG.JQ_TOOL]
+            'bin': [bundle], 
+        },
+        outs = [name +'.sh'],
+        binary = True,
+        visibility = visibility,
+        labels = labels ,
+    )
 CONFIG.setdefault('NODE_TOOL', 'node')
+CONFIG.setdefault('JQ_TOOL', 'jq')
