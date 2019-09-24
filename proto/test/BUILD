@@ -22,10 +22,9 @@ go_binary(
     srcs = ['gateway_main.go'],
     deps = [
         ':kitten',
-        '//third_party/go:context',
         '//third_party/go:go-flags',
         '//third_party/go:grpc',
-        '//third_party/go:grpc-gateway-runtime',
+        '//third_party/go:grpc-gateway',
     ],
 )
 

@@ -2,13 +2,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/jessevdk/go-flags"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
 	gw "proto/test/kitten"

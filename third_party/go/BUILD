@@ -3,54 +3,169 @@ package(default_visibility = ["PUBLIC"])
 go_get(
     name = "protoc-gen-grpc-gateway",
     binary = True,
-    get = "github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway",
+    get = [],
+    install = ["github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway"],
+    deps = [
+        ":glog",
+        ":grpc",
+        ":grpc-gateway",
+        ":protobuf",
+        ":net",
+    ],
 )
 
 go_get(
     name = "protoc-gen-swagger",
     binary = True,
-    get = "github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger",
+    get = [],
+    install = ["github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger"],
+    deps = [
+        ":glog",
+        ":grpc",
+        ":grpc-gateway",
+        ":protobuf",
+        ":net",
+    ],
 )
 
 go_get(
-    name = "context",
-    get = "golang.org/x/net/context",
+    name = "net",
+    get = "golang.org/x/net/...",
+    revision = "136a25c244d3019482a795d728110278d6ba09a4",
+    deps = [
+        ":terminal",
+        ":text",
+    ],
+)
+
+go_get(
+    name = "tools",
+    get = "golang.org/x/tools",
+    install = [
+        "cover",
+    ],
+    revision = "2ae76fd1560b622911f444c1e66b70a857e1de67",
+)
+
+go_get(
+    name = "text",
+    get = "golang.org/x/text/...",
+    revision = "4e4a3210bb54bb31f6ab2cdca2edcc0b50c420c1",
+    deps = [
+        ":tools",
+    ],
 )
 
 go_get(
     name = "grpc",
-    exported_deps = [":context"],
+    exported_deps = [":net"],
     get = "google.golang.org/grpc",
+    install = [
+        "",
+        "balancer",
+        "balancer/base",
+        "balancer/roundrobin",
+        "binarylog/...",
+        "codes",
+        "connectivity",
+        "credentials",
+        "credentials/internal",
+        "encoding",
+        "encoding/gzip",
+        "encoding/proto",
+        "grpclog",
+        "health",
+        "health/grpc_health_v1",
+        "internal/...",
+        "keepalive",
+        "metadata",
+        "naming",
+        "peer",
+        "resolver",
+        "resolver/dns",
+        "resolver/passthrough",
+        "serviceconfig",
+        "stats",
+        "status",
+        "tap",
+    ],
+    repo = "github.com/grpc/grpc-go",
+    revision = "v1.22.0",
+    deps = [
+        ":protobuf",
+        ":rpcstatus",
+        ":unix",
+    ],
+)
+
+go_get(
+    name = "rpcstatus",
+    get = "google.golang.org/genproto/googleapis/rpc/status",
+    revision = "2b5a72b8730b0b16380010cfe5286c42108d88e7",
     deps = [":protobuf"],
 )
 
 go_get(
     name = "protobuf",
-    get = "github.com/golang/protobuf/ptypes",
-    install = ["github.com/golang/protobuf/protoc-gen-go/descriptor"],
+    get = "github.com/golang/protobuf/...",
+    revision = "v1.3.2",
+    strip = [
+        "proto/proto3_proto",
+        "conformance",
+    ],
 )
 
 go_get(
     name = "protoc-gen-go",
     binary = True,
-    get = "github.com/golang/protobuf/protoc-gen-go",
-    deps = [":protobuf"],
-)
-
-go_get(
-    name = "annotations",
-    get = "google.golang.org/genproto/googleapis/api/annotations",
-    deps = [":protobuf"],
-)
-
-go_get(
-    name = "grpc-gateway-runtime",
-    exported_deps = [":annotations"],
-    get = "github.com/grpc-ecosystem/grpc-gateway/runtime",
+    get = [],
+    install = ["github.com/golang/protobuf/protoc-gen-go"],
     deps = [
-        ":grpc",
         ":protobuf",
     ],
+)
+
+go_get(
+    name = "grpc-gateway",
+    get = "github.com/grpc-ecosystem/grpc-gateway/...",
+    licences = ["bsd-3-clause"],
+    revision = "v1.6.3",
+    strip = ["examples"],
+    deps = [
+        ":genproto_api",
+        ":genproto_protobuf",
+        ":glog",
+        ":grpc",
+        ":protobuf",
+        ":net",
+        ":yaml",
+    ],
+)
+
+go_get(
+    name = "genproto_api",
+    get = "google.golang.org/genproto/googleapis/api",
+    install = [
+        "annotations",
+    ],
+    revision = "bd9b4fb69e2ffd37621a6caa54dcbead29b546f2",
+    deps = [":protobuf"],
+)
+
+go_get(
+    name = "genproto_protobuf",
+    get = "google.golang.org/genproto/protobuf/...",
+    revision = "bd9b4fb69e2ffd37621a6caa54dcbead29b546f2",
+    deps = [
+        ":protobuf",
+    ],
+)
+
+go_get(
+    name = "glog",
+    get = "github.com/golang/glog",
+    licences = ["apache-2.0"],
+    revision = "23def4e6c14b4da8ac2ed8007337bc5eb5007998",
 )
 
 go_get(
@@ -124,4 +239,18 @@ go_get(
     get = "github.com/kevinburke/go-bindata/...",
     revision = "46eb4c183bfc1ebb527d9d19bcded39476302eb8",
     strip = ["testdata"],
+)
+
+go_get(
+    name = "yaml",
+    get = "github.com/ghodss/yaml",
+    licences = ["mit"],
+    revision = "v1.0.0",
+    deps = [":yaml.v2"],
+)
+
+go_get(
+    name = "yaml.v2",
+    get = "gopkg.in/yaml.v2",
+    revision = "f7716cbe52baa25d2e9b0d0da546fcf909fc16b4",
 )
