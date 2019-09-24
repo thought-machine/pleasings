@@ -209,7 +209,7 @@ def proto_language(language:str, extensions:list|dict, func:function, use_file_n
             This is the case for most languages but not e.g. Java where they depend on the
             declarations in the proto file. If False we'll attempt to detect them.
       protoc_flags (list): Additional flags for the protoc invocation for this rule.
-      tools (list): Additional tools to apply to this rule.
+      tools (list|dict): Additional tools to apply to this rule.
       deps (list|dict): Additional dependencies to apply to this rule.
       pre_build (function): Definition of pre-build function to apply to this language.
       proto_language (str): Name of the language (as protoc would name it). Defaults to the same as language.
