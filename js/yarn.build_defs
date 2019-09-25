@@ -74,7 +74,7 @@ def yarn_binary(name:str, package:str, deps:list=None, visibility:list=None, lab
         ],
         tools = {
             'node':[CONFIG.NODE_TOOL],
-            'jq': [CONFIG.JQ_TOOL]
+            'jq': [CONFIG.JQ_TOOL],
             'bin': [bundle], 
         },
         outs = [name +'.sh'],
