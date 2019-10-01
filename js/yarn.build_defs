@@ -70,7 +70,7 @@ def yarn_binary(name:str, package:str, deps:list=None, visibility:list=None, lab
         name = name,
         cmd = [
             'echo "#!/usr/bin/env bash" >> $OUT',
-            f'echo "${TOOLS_NODE} $(out_location {bundle})/$(${TOOLS_JQ} -r \'.bin["{name}"]\' $(out_location {bundle})/package.json) $@" >> $OUT',
+            f'echo "${TOOLS_NODE} ${TOOLS_BIN}/$(${TOOLS_JQ} -r \'.bin["{name}"]\' ${TOOLS_BIN}/package.json) $@" >> $OUT',
         ],
         tools = {
             'node':[CONFIG.NODE_TOOL],
