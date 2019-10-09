@@ -54,3 +54,6 @@ RUN curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
 
 # pip (python deps)
 RUN apt-get install -y python3-pip
+
+# nim dependency
+RUN apt-get install nim
