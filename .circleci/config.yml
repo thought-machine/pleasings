@@ -3,7 +3,7 @@ jobs:
    build:
      working_directory: ~/pleasings
      docker:
-       - image: thoughtmachine/pleasings:latest
+       - image: thoughtmachine/pleasings:20191009
      steps:
        - checkout
        - run:
