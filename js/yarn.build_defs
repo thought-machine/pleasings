@@ -16,7 +16,7 @@ def yarn_library(name, version, package_name=None, out=None, hashes=None, test_o
     Args:
       name (str): Name of the rule.
       version (str): Version of the package to install.
-      package_name (str): The name of the package. Defaults to the name.
+      package_name (str): The name of the node package. Defaults to name.
       out (str): Output name for this package. Defaults to name.
       hashes (list): List of hashes that outputs must match.
       test_only (bool): If True, can only be depended on by test rules.
@@ -24,7 +24,8 @@ def yarn_library(name, version, package_name=None, out=None, hashes=None, test_o
       visibility (list): Visibility declaration for this rule.
       deps (list): Any other dependencies of the rule.
     """
-    url = 'https://registry.yarnpkg.com/%s/-/%s-%s.tgz' % (package_name or name, package_name or name, version)
+    package_name = package_name or name
+    url = 'https://registry.yarnpkg.com/%s/-/%s-%s.tgz' % (package_name, package_name, version)
     cmd = 'echo "Fetching %s..." && curl -fsSL %s | tar -xz --no-same-owner --no-same-permissions && mv package $OUT' % (url, url)
     if patches:
         cmd += ' && for SRC in $SRCS; do patch -p0 -l -i $SRC; done'
@@ -40,7 +41,7 @@ def yarn_library(name, version, package_name=None, out=None, hashes=None, test_o
         output_is_complete = False,
         visibility = visibility,
         exported_deps = deps,
-        labels = ['yarn:%s@%s' % (package_name or name, version)],
+        labels = ['yarn:%s@%s' % (package_name, version)],
     )
 
 def yarn_binary(name:str, package:str, deps:list=None, visibility:list=None, labels:list = None):
