@@ -13,8 +13,8 @@ def requirements_txt(name:str, src:str='requirements.txt', zip_safe:bool=True, t
         cmd = 'cat $SRCS',
         post_build = lambda _, output: [add_dep(name, auto_pip_library(
             name = line.partition('=')[0].rstrip('>=< '),
-            package = line.partition('#')[0].rstrip('\\ '),
-        )) for line in output if not (line.startswith('#') or line.startswith(' '))],
+            package = line.partition('#')[0].rstrip('\\ '), # remove comments and strip continuation character
+        )) for line in output if not (line.startswith('#') or line.startswith(' '))], # skip lines beginning with a comment or space
         deps = deps,
     )
     return filegroup(
