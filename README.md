@@ -15,6 +15,7 @@ Currently contains the following:
  * Rust: A very basic set of rules for building Rust code. Hasn't gone much beyond "hello world" yet.
  * Protocol Buffers: Extensions to the builtin proto rules, currently one to generate a REST proxy
    using [grpc-gateway](https://github.com/grpc-ecosystem/grpc-gateway)
+ * Python: Basic rules for importing dependencies from `requirements.txt`. Does not support all possible entries yet.
  * Java: An extended compiler worker that integrates
    [error-prone](https://github.com/google/error-prone) for additional compile-time diagnostics.
  * Scala: Basic rules for compiling scala code to `.jar` files. No test support yet.
