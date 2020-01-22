@@ -1,5 +1,4 @@
 # Allow any version of six
 six
 # Specify a particular version (not the latest) of attrs.
-# Excerpt from a file generated with `pip-compile --generate-hashes`
 attrs==18.1.0 # Allow comments after a dependency
