@@ -1,4 +1,4 @@
 # Allow any version of six
 six
 # Specify a particular version (not the latest) of attrs.
-attrs==18.1.0
+attrs==18.1.0 # Allow comments after a dependency
