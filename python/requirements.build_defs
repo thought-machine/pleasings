@@ -14,7 +14,7 @@ def requirements_txt(name:str, src:str='requirements.txt', zip_safe:bool=True, t
         post_build = lambda _, output: [add_dep(name, auto_pip_library(
             name = line.partition('=')[0].rstrip('>=< '),
             package = line.partition('#')[0].rstrip(' '), # remove comments and strip spaces
-        )) for line in output if not line.startswith('#')],
+        )) for line in output if not line.startswith('#') and len(line.strip()) > 0],
         deps = deps,
     )
     return filegroup(
