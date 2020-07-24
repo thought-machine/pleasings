@@ -1,22 +1,18 @@
 subinclude('//remote')
 
-def yarn_library(name, version, package_name=None, out=None, hashes=None, test_only=False, patches=None,
-                 visibility=None, deps=None, _tag=''):
-    """Install a third-party library from the Yarn registry.
+def yarn_offline_mirror_module(name, version, package_name=None, resolved_by:str='', out=None, hashes=None, test_only=False, patches=None,
+                 visibility=["PUBLIC"], deps=[], _tag=''):
+    """Install a third-party library from the Yarn registry into a local mirror that yarn_bundle_script can use.
 
-    The typical workflow for this is to use Yarn to set up your package.json and yarn.lock,
-    then feed it through yarn_deps.py to generate the appropriate BUILD rules.
-    Right now deps have to be installed with --flat, this rule can't generate nested node_modules
-    directories.
-
-    It's not required to check in the Yarn files; you can regenerate them using
-    plz query print //third_party/js:all -f labels | grep yarn: | cut -c 6- | xargs yarn add
-    but of course you may prefer to check them in if you're following a normal Yarn workflow too.
+    The typical workflow for this is to use Yarn to set up your package.json and yarn.lock, then feed it through
+    //js/yarn_deps:run to generate the appropriate BUILD rules. The yarn files may be checked in and used to facilitate
+    watchers and other niceties from the yarn ecosystem.
 
     Args:
       name (str): Name of the rule.
       version (str): Version of the package to install.
       package_name (str): The name of the node package. Defaults to name.
+      resolved_by (str): The URL that this dependency is resolved by. Optional.
       out (str): Output name for this package. Defaults to name.
       hashes (list): List of hashes that outputs must match.
       test_only (bool): If True, can only be depended on by test rules.
@@ -25,64 +21,79 @@ def yarn_library(name, version, package_name=None, out=None, hashes=None, test_o
       deps (list): Any other dependencies of the rule.
     """
     package_name = package_name or name
-    url = 'https://registry.yarnpkg.com/%s/-/%s-%s.tgz' % (package_name, package_name, version)
-    cmd = 'echo "Fetching %s..." && curl -fsSL %s | tar -xz --no-same-owner --no-same-permissions && mv package $OUT' % (url, url)
+    url = resolved_by if resolved_by else 'https://registry.yarnpkg.com/%s/-/%s-%s.tgz' % (package_name, package_name, version)
+    cmd = 'echo "Fetching %s..." && mkdir target && curl -fsSL %s | tar -xz --no-same-owner --no-same-permissions -C target && mv target/* $OUT' % (url, url)
     if patches:
         cmd += ' && for SRC in $SRCS; do patch -p0 -l -i $SRC; done'
-    return build_rule(
-        name = name,
-        tag = _tag,
-        cmd = cmd,
-        srcs = patches,
-        outs = [out or name],
+
+    download = remote_file(
+        name = f'_{name}#download',
+        url = url,
+        out = out if out else f'{name}.tgz',
         hashes = hashes,
         test_only = test_only,
-        building_description = 'Downloading...',
-        output_is_complete = False,
         visibility = visibility,
-        exported_deps = deps,
         labels = ['yarn:%s@%s' % (package_name, version)],
     )
 
-def yarn_binary(name:str, package:str, deps:list=None, visibility:list=None, labels:list = None):
-    """Create a binary executable from a yarn bundle.
-
-    Args:
-        name (str): Name of the rule that must be found in the bin section in package.json
-        package (str): a yarn_library that contain the node script that we are going to use 
-        deps (list): list of yarn dependencies that will be copied in node_modules dir of the package
-        labels (list): a list of labels that will be used to mark the returning targets
-        visibility (list): Visibility declaration for this rule.
-
-    """
-    bundle = genrule(
-        name = '_'+name+'#bundle', 
-        srcs = [package],
-        deps = deps,
-
-        cmd = [
-            'mkdir -p $OUT',
-            f'cp -Rf $(location {package})/* $OUT',
-            'mkdir -p $OUT/node_modules'
-        ]+[f'cp -rf $(location {d}) $OUT/node_modules' for d in deps],
-        outs = [name]
+    return filegroup(
+        srcs = [download],
+        name = name,
+        exported_deps = deps,
+        needs_transitive_deps = True,
+        visibility = visibility,
     )
-    
+
+#TODO(jpoole): a yarn pack rule so other modules can be packaged up into a .tgz for the offline mirror
+def yarn_script(name:str, script_name:str="build", args:str="", outs=[], package_json:str="package.json",
+                yarn_lock:str="yarn.lock", srcs:list, deps:list=[], test_only=False, visibility:list=None,
+                third_party_location='third_party/js', binary=False, hashes=None):
+    """
+        Runs a script within a node module handling setting up the offline mirror so the install can be done
+        in a reproducible and sandboxed way.
+
+        Args:
+          name (str): Name of the rule.
+          script_name (str): The script to run. If left blank, onlyu the modules will be installed.
+          args (str): Any addional args to pass to yarn
+          outs (str): A list of outputs to save from this rule
+          package_json (str): the module's package.json file
+          yarn_lock (str): the module's yarn.lock file
+          srcs (str): Any sources to pass to this rule.
+          deps (str): any dependencies of this rule.
+          test_only (bool): If True, can only be depended on by test rules.
+          visibility (list): Visibility declaration for this rule.
+          third_party_location (str): the location of the third party offline mirror rules.
+          binary (bool): if the outputs of this rule are binary. Default false.
+          hashes (list): List of hashes that outputs must match.
+        """
+    cmd = [
+        "cd $PKG_DIR",
+        f"echo yarn-offline-mirror \"$TMP_DIR/{third_party_location}\" > .yarnrc",
+        f"$TOOLS_YARN --offline install",
+    ]
+
+    if script_name:
+        cmd += [f"$TOOLS_YARN --offline run {script_name} {args}"]
+
+    for out in outs:
+        cmd+=[f"mv {out} $TMP_DIR/{out}"]
+
     return genrule(
         name = name,
-        cmd = [
-            'echo "#!/usr/bin/env bash" >> $OUT',
-            f'echo "${TOOLS_NODE} ${TOOLS_BIN}/$(${TOOLS_JQ} -r \'.bin["{name}"]\' ${TOOLS_BIN}/package.json) $@" >> $OUT',
-        ],
-        tools = {
-            'node':[CONFIG.NODE_TOOL],
-            'jq': [CONFIG.JQ_TOOL],
-            'bin': [bundle], 
-        },
-        outs = [name +'.sh'],
-        binary = True,
+        srcs = srcs + [package_json, yarn_lock],
+        cmd  = cmd,
+        outs = outs,
+        deps = deps,
+        needs_transitive_deps = True,
+        building_description = "Building...",
+        tools = {"yarn": [CONFIG.YARN_TOOL]},
+        binary = binary,
         visibility = visibility,
-        labels = labels ,
+        test_only = test_only,
+        hashes = hashes,
     )
+
 CONFIG.setdefault('NODE_TOOL', 'node')
+CONFIG.setdefault('YARN_TOOL', 'yarn')
 CONFIG.setdefault('JQ_TOOL', 'jq')

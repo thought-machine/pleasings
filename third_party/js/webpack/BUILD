@@ -1,4 +1,3 @@
-subinclude('//js:yarn')
 subinclude('//js')
 package(default_visibility = ['//js/webpack:all'])
 

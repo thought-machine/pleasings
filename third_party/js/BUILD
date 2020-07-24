@@ -1,5 +1,4 @@
 subinclude('//js')
-subinclude('//js:yarn')
 package(default_visibility = ['PUBLIC'])
 
 yarn_library(

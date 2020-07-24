@@ -5,6 +5,7 @@ version = >=14.1.0
 path = /usr/local/bin:/usr/bin:/bin
 ; It's quite likely that anyone using Rust will have it here.
 path = ~/.cargo/bin
+path = ~/.yarn/bin
 
 [go]
 importpath = github.com/thought-machine/pleasings
