@@ -13,7 +13,8 @@ yarn_script(
 )
 
 sh_cmd(
-    name = "run",
+    name = "yarn_deps",
     data = [":install"],
-    cmd = "node $(dirname $(out_location :run))/index.js",
+    cmd = "node $(dirname $(out_location :yarn_deps))/index.js",
+    visibility = ["PUBLIC"],
 )

@@ -2,11 +2,13 @@ subinclude('//remote')
 
 def yarn_module(name, version, package_name=None, resolved_by:str='', out=None, hashes=None, test_only=False, patches=None,
                  visibility=None, deps=[], _tag=''):
-    """Install a third-party library from the Yarn registry into a local mirror that yarn_bundle_script can use.
+    """Install a third-party library from the Yarn registry into a local mirror that yarn_script can use.
 
     The typical workflow for this is to use Yarn to set up your package.json and yarn.lock, then feed it through
     //js/yarn_deps:run to generate the appropriate BUILD rules. The yarn files may be checked in and used to facilitate
     watchers and other niceties from the yarn ecosystem.
+
+    See //js/yarn_deps/generate_third_party.sh for an example usage.
 
     Args:
       name (str): Name of the rule.
