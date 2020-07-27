@@ -1,3 +1,89 @@
+def yarn_library(name, version, package_name=None, out=None, hashes=None, test_only=False, patches=None,
+                 visibility=None, deps=None, _tag=''):
+    """Install a third-party library from the Yarn registry.
+
+    The typical workflow for this is to use Yarn to set up your package.json and yarn.lock,
+    then feed it through yarn_deps.py to generate the appropriate BUILD rules.
+    Right now deps have to be installed with --flat, this rule can't generate nested node_modules
+    directories.
+
+    It's not required to check in the Yarn files; you can regenerate them using
+    plz query print //third_party/js:all -f labels | grep yarn: | cut -c 6- | xargs yarn add
+    but of course you may prefer to check them in if you're following a normal Yarn workflow too.
+
+    Args:
+      name (str): Name of the rule.
+      version (str): Version of the package to install.
+      package_name (str): The name of the node package. Defaults to name.
+      out (str): Output name for this package. Defaults to name.
+      hashes (list): List of hashes that outputs must match.
+      test_only (bool): If True, can only be depended on by test rules.
+      patches (list): List of patch files to apply to the output library.
+      visibility (list): Visibility declaration for this rule.
+      deps (list): Any other dependencies of the rule.
+    """
+    package_name = package_name or name
+    url = 'https://registry.yarnpkg.com/%s/-/%s-%s.tgz' % (package_name, package_name, version)
+    cmd = 'echo "Fetching %s..." && curl -fsSL %s | tar -xz --no-same-owner --no-same-permissions && mv package $OUT' % (url, url)
+    if patches:
+        cmd += ' && for SRC in $SRCS; do patch -p0 -l -i $SRC; done'
+    return build_rule(
+        name = name,
+        tag = _tag,
+        cmd = cmd,
+        srcs = patches,
+        outs = [out or name],
+        hashes = hashes,
+        test_only = test_only,
+        building_description = 'Downloading...',
+        output_is_complete = False,
+        visibility = visibility,
+        exported_deps = deps,
+        labels = ['yarn:%s@%s' % (package_name, version)],
+    )
+
+def yarn_binary(name:str, package:str, deps:list=None, visibility:list=None, labels:list = None):
+    """Create a binary executable from a yarn bundle.
+
+    Args:
+        name (str): Name of the rule that must be found in the bin section in package.json
+        package (str): a yarn_library that contain the node script that we are going to use
+        deps (list): list of yarn dependencies that will be copied in node_modules dir of the package
+        labels (list): a list of labels that will be used to mark the returning targets
+        visibility (list): Visibility declaration for this rule.
+
+    """
+    bundle = genrule(
+        name = '_'+name+'#bundle',
+        srcs = [package],
+        deps = deps,
+
+        cmd = [
+                  'mkdir -p $OUT',
+                  f'cp -Rf $(location {package})/* $OUT',
+                  'mkdir -p $OUT/node_modules'
+              ]+[f'cp -rf $(location {d}) $OUT/node_modules' for d in deps],
+        outs = [name]
+    )
+
+    return genrule(
+        name = name,
+        cmd = [
+            'echo "#!/usr/bin/env bash" >> $OUT',
+            f'echo "${TOOLS_NODE} ${TOOLS_BIN}/$(${TOOLS_JQ} -r \'.bin["{name}"]\' ${TOOLS_BIN}/package.json) $@" >> $OUT',
+        ],
+        tools = {
+            'node':[CONFIG.NODE_TOOL],
+            'jq': [CONFIG.JQ_TOOL],
+            'bin': [bundle],
+        },
+        outs = [name +'.sh'],
+        binary = True,
+        visibility = visibility,
+        labels = labels ,
+    )
+
+
 def js_library(name, srcs, test_only=False, visibility=None, deps=None):
     """Defines a Javascript library rule.
 
@@ -233,3 +319,4 @@ def yarn_bundle(name, version, out=None, hashes=None, test_only=False, visibilit
 CONFIG.setdefault('NODE_TOOL', 'node')
 CONFIG.setdefault('NODE_PATH', '$TMP_DIR:$TMP_DIR/third_party/js')
 CONFIG.setdefault('WEBPACK_TOOL', '//third_party/js:webpack')
+CONFIG.setdefault('JQ_TOOL', 'jq')

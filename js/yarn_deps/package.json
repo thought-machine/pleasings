@@ -1,0 +1,16 @@
+{
+  "name": "yarn_deps",
+  "version": "1.0.0",
+  "description": "Generates please BUILD files based off a yarn lockfile",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "generate": "node index.js"
+  },
+  "author": "Jon Poole",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "parse-yarn-lock": "0.28.4",
+    "semver": "^7.3.2"
+  }
+}
