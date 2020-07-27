@@ -1,0 +1,14 @@
+{
+  "name": "@example/foo_lib",
+  "version": "1.0.0",
+  "description": "Example library",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "lodash": "^4.17.19"
+  }
+}

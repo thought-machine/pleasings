@@ -1,5 +1,3 @@
-subinclude('//remote')
-
 def yarn_module(name, version, package_name=None, resolved_by:str='', out=None, hashes=None, test_only=False, patches=None,
                  visibility=None, deps=[], _tag=''):
     """Install a third-party library from the Yarn registry into a local mirror that yarn_script can use.
@@ -49,7 +47,8 @@ def yarn_module(name, version, package_name=None, resolved_by:str='', out=None, 
 #TODO(jpoole): a yarn pack rule so other modules can be packaged up into a .tgz for the offline mirror
 def yarn_script(name:str, script_name:str="build", args:str="", outs=[], package_json:str="package.json",
                 yarn_lock:str="yarn.lock", srcs:list, deps:list=[], test_only=False, visibility:list=None,
-                third_party_location='third_party/js', binary=False, hashes=None):
+                third_party_location=CONFIG.YARN_OFFLINE_MIRROR, binary=False, hashes=None,
+                workspace:str=CONFIG.YARN_WORKSPACE):
     """
         Runs a script within a node module handling setting up the offline mirror so the install can be done
         in a reproducible and sandboxed way.
@@ -68,6 +67,8 @@ def yarn_script(name:str, script_name:str="build", args:str="", outs=[], package
           third_party_location (str): the location of the third party offline mirror rules.
           binary (bool): if the outputs of this rule are binary. Default false.
           hashes (list): List of hashes that outputs must match.
+          workspace (str): The yarn workspace rule to use. If this is not set, the yarn.lock file is expected to exist
+                           in the current node module.
         """
     cmd = [
         "cd $PKG_DIR",
@@ -81,9 +82,14 @@ def yarn_script(name:str, script_name:str="build", args:str="", outs=[], package
     for out in outs:
         cmd+=[f"mv {out} $TMP_DIR/{out}"]
 
+    if workspace:
+        deps += [workspace]
+    else:
+        srcs += [yarn_lock]
+
     return genrule(
         name = name,
-        srcs = srcs + [package_json, yarn_lock],
+        srcs = srcs + [package_json],
         cmd  = cmd,
         outs = outs,
         deps = deps,
@@ -96,6 +102,26 @@ def yarn_script(name:str, script_name:str="build", args:str="", outs=[], package
         hashes = hashes,
     )
 
+def node_module(name:str, package_json:str="package.json", srcs:list, deps:list=[], test_only=False, visibility:list=None,
+              hashes=None):
+    return filegroup(
+        name = name,
+        srcs = srcs + [package_json],
+        exported_deps = deps,
+        test_only = test_only,
+        visibility = visibility,
+        hashes = hashes,
+    )
+
+def yarn_workspace(name:str, package_json:str="package.json", yarn_lock="yarn.lock", visibility:list=["PUBLIC"], hashes=None):
+    return filegroup(
+        name = name,
+        srcs = [package_json, yarn_lock],
+        visibility = visibility,
+        hashes = hashes,
+    )
+
 CONFIG.setdefault('NODE_TOOL', 'node')
 CONFIG.setdefault('YARN_TOOL', 'yarn')
 CONFIG.setdefault('JQ_TOOL', 'jq')
+CONFIG.setdefault('YARN_OFFLINE_MIRROR', 'third_party/js')
