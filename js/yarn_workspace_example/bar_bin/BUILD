@@ -5,7 +5,7 @@ subinclude("//js:yarn")
 # This can be used for more advanced tasks like building a webpack but this demonstrates how
 # to use the yarn_script rule.
 yarn_script(
-    name = "install",
+    name = "lodash_version",
     srcs = ["index.js"],
     outs = ["version.txt"],
     script_name = "lodash_version",

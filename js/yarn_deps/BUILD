@@ -16,6 +16,6 @@ yarn_script(
 sh_cmd(
     name = "yarn_deps",
     data = [":install"],
-    cmd = "node $(dirname $(out_location :yarn_deps))/index.js",
+    cmd = "node plz-out/gen/js/yarn_deps/index.js",
     visibility = ["PUBLIC"],
 )

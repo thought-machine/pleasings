@@ -4,7 +4,6 @@ subinclude("//js:yarn")
 # node modules can transitively depend on each-others third_party deps
 node_module(
     name = "foo_lib",
-    srcs = ["index.js"],
-    deps = ["//js/yarn_workspace_example/third_party:lodash"],
+    deps = ["//js/yarn_workspace_example/foo_lib/src"],
     visibility = ["//js/yarn_workspace_example/..."],
 )
