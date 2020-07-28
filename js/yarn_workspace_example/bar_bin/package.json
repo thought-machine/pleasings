@@ -1,0 +1,15 @@
+{
+  "name": "bar_bin",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lodash_version": "node index.js > version.txt"
+  },
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@example/foo_lib": "^1.0.0"
+  }
+}

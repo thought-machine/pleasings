@@ -1,5 +1,3 @@
-subinclude('//remote')
-
 def yarn_module(name, version, package_name=None, resolved_by:str='', out=None, hashes=None, test_only=False, patches=None,
                  visibility=None, deps=[], _tag=''):
     """Install a third-party library from the Yarn registry into a local mirror that yarn_script can use.
@@ -46,34 +44,40 @@ def yarn_module(name, version, package_name=None, resolved_by:str='', out=None, 
         visibility = visibility,
     )
 
-#TODO(jpoole): a yarn pack rule so other modules can be packaged up into a .tgz for the offline mirror
+def _yarn_install(third_party_location, production):
+    return [
+        "cd $PKG_DIR",
+        f"echo yarn-offline-mirror \"$TMP_DIR/{third_party_location}\" > .yarnrc",
+        "$TOOLS_YARN --offline install --production" if production else "$TOOLS_YARN --offline install",
+    ]
+
 def yarn_script(name:str, script_name:str="build", args:str="", outs=[], package_json:str="package.json",
-                yarn_lock:str="yarn.lock", srcs:list, deps:list=[], test_only=False, visibility:list=None,
-                third_party_location='third_party/js', binary=False, hashes=None):
+                yarn_lock:str="yarn.lock", srcs:list, deps:list=[], test_only:bool=False, visibility:list=None,
+                third_party_location:str=CONFIG.YARN_OFFLINE_MIRROR, binary:bool=False, hashes:list=None,
+                workspace:str=CONFIG.YARN_WORKSPACE, production_only:bool=True):
     """
-        Runs a script within a node module handling setting up the offline mirror so the install can be done
-        in a reproducible and sandboxed way.
+        Runs a script within a node module handling the yarn install. This can be used to create bundles with tools
+        like webpack.
 
         Args:
           name (str): Name of the rule.
-          script_name (str): The script to run. If left blank, onlyu the modules will be installed.
-          args (str): Any addional args to pass to yarn
+          script_name (str): The script to run. If left blank, only the modules will be installed.
+          args (str): Any additional args to pass to yarn
           outs (str): A list of outputs to save from this rule
-          package_json (str): the module's package.json file
-          yarn_lock (str): the module's yarn.lock file
+          package_json (str): The module's package.json file
+          yarn_lock (str): The module's yarn.lock file
           srcs (str): Any sources to pass to this rule.
-          deps (str): any dependencies of this rule.
+          deps (str): Any dependencies of this rule.
           test_only (bool): If True, can only be depended on by test rules.
           visibility (list): Visibility declaration for this rule.
-          third_party_location (str): the location of the third party offline mirror rules.
-          binary (bool): if the outputs of this rule are binary. Default false.
+          third_party_location (str): The location of the third party offline mirror rules.
+          binary (bool): If the outputs of this rule are binary. Default false.
           hashes (list): List of hashes that outputs must match.
+          workspace (str): The yarn workspace rule to use. If this is not set, the yarn.lock file is expected to exist
+                           in the current node module.
+          production_only (bool): Whether to install only the production dependencies i.e. not the dev dependencies
         """
-    cmd = [
-        "cd $PKG_DIR",
-        f"echo yarn-offline-mirror \"$TMP_DIR/{third_party_location}\" > .yarnrc",
-        f"$TOOLS_YARN --offline install",
-    ]
+    cmd = _yarn_install(third_party_location, production_only)
 
     if script_name:
         cmd += [f"$TOOLS_YARN --offline run {script_name} {args}"]
@@ -81,9 +85,14 @@ def yarn_script(name:str, script_name:str="build", args:str="", outs=[], package
     for out in outs:
         cmd+=[f"mv {out} $TMP_DIR/{out}"]
 
+    if workspace:
+        deps += [workspace]
+    else:
+        srcs += [yarn_lock]
+
     return genrule(
         name = name,
-        srcs = srcs + [package_json, yarn_lock],
+        srcs = srcs + [package_json],
         cmd  = cmd,
         outs = outs,
         deps = deps,
@@ -96,6 +105,50 @@ def yarn_script(name:str, script_name:str="build", args:str="", outs=[], package
         hashes = hashes,
     )
 
+def node_module(name:str, package_json:str="package.json", srcs:list=[], deps:list=[], test_only=False, visibility:list=None,
+              hashes=None):
+    """
+        Defines a node module which can be used as a library and depended on by a yarn_script rule.
+
+        Args:
+          name (str): Name of the rule.
+          package_json (str): The package.json file for this module. Defaults to package.json.
+          srcs (str): Any sources to pass to this rule.
+          deps (str): Any dependencies of this rule.
+          test_only (bool): If True, can only be depended on by test rules.
+          visibility (list): Visibility declaration for this rule.
+          hashes (list): List of hashes that outputs must match.
+    """
+    return filegroup(
+        name = name,
+        srcs = srcs + [package_json],
+        exported_deps = deps,
+        test_only = test_only,
+        visibility = visibility,
+        hashes = hashes,
+    )
+
+def yarn_workspace(name:str, package_json:str="package.json", yarn_lock="yarn.lock", visibility:list=["PUBLIC"],
+                   hashes:list=None):
+    """
+        Defined a yarn workspace that can be used to enable multiple yarn projects to exist in the same repository.
+
+        Args:
+          name (str): Name of the rule.
+          package_json (str): The package.json file for this module. Defaults to package.json.
+          yarn_lock (str): The yarn lock file. Defaults to yarn.lock.
+          visibility (list): Visibility declaration for this rule.
+          hashes (list): List of hashes that outputs must match.
+    """
+    return filegroup(
+        name = name,
+        srcs = [package_json, yarn_lock],
+        visibility = visibility,
+        hashes = hashes,
+    )
+
 CONFIG.setdefault('NODE_TOOL', 'node')
+# TODO(jpoole): it should be possible to create a yarn build rule instead of requiring it on the path
 CONFIG.setdefault('YARN_TOOL', 'yarn')
 CONFIG.setdefault('JQ_TOOL', 'jq')
+CONFIG.setdefault('YARN_OFFLINE_MIRROR', 'third_party/js')

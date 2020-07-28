@@ -20,6 +20,9 @@ webpack-tool = //js/webpack
 rust-toolchain = //third_party/rust:toolchain
 ; This doesn't exist but serves as an example.
 default-docker-repo = repo.please.build
+; yarn
+yarn-workspace = //js/yarn_workspace_example:workspace
+yarn-offline-mirror = js/yarn_workspace_example/third_party
 
 [proto]
 protoctool = //third_party/proto:protoc

@@ -1,0 +1,9 @@
+{
+  "name": "yarn_workspace_example",
+  "private": true,
+  "workspaces": [
+    "foo_lib",
+    "bar_bin",
+    "non-existant"
+  ]
+}
