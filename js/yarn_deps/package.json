@@ -5,12 +5,17 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "generate": "node index.js"
+    "build": "webpack",
+    "generate": "cat yarn.lock | node index.js | sed 's+///pleasings//js+//js+g' > third_party/BUILD"
   },
   "author": "Jon Poole",
   "license": "Apache-2.0",
   "dependencies": {
     "parse-yarn-lock": "0.28.4",
     "semver": "^7.3.2"
+  },
+  "devDependencies": {
+    "webpack": "^4.44.1",
+    "webpack-cli": "^3.3.12"
   }
 }

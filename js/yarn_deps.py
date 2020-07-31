@@ -5,6 +5,8 @@ N.B. Deps probably need to be installed with --flat for now.
 
 TODO(peterebden): Rewrite this in Javascript...
 
+N.B. this is designed to work with the rules in //js:js not the new rules in //js:yarn.
+
 Usage:
   yarn list --json | yarn_deps.py >> third_party/js/BUILD
 """

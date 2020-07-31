@@ -54,7 +54,7 @@ def _yarn_install(third_party_location, production):
 def yarn_script(name:str, script_name:str="build", args:str="", outs=[], package_json:str="package.json",
                 yarn_lock:str="yarn.lock", srcs:list, deps:list=[], test_only:bool=False, visibility:list=None,
                 third_party_location:str=CONFIG.YARN_OFFLINE_MIRROR, binary:bool=False, hashes:list=None,
-                workspace:str=CONFIG.YARN_WORKSPACE, production_only:bool=True):
+                workspace:str=CONFIG.YARN_WORKSPACE, production_only:bool=False):
     """
         Runs a script within a node module handling the yarn install. This can be used to create bundles with tools
         like webpack.
