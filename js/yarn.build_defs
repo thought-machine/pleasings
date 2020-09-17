@@ -66,7 +66,7 @@ def yarn_script(name:str, script_name:str="build", args:str="", outs=[], package
           outs (str): A list of outputs to save from this rule
           package_json (str): The module's package.json file
           yarn_lock (str): The module's yarn.lock file
-          srcs (str): Any sources to pass to this rule.
+          srcs (list): Any sources to pass to this rule.
           deps (str): Any dependencies of this rule.
           test_only (bool): If True, can only be depended on by test rules.
           visibility (list): Visibility declaration for this rule.
@@ -105,7 +105,7 @@ def yarn_script(name:str, script_name:str="build", args:str="", outs=[], package
         hashes = hashes,
     )
 
-def node_module(name:str, package_json:str="package.json", srcs:list=[], deps:list=[], test_only=False, visibility:list=None,
+def yarn_workspace(name:str, package_json:str="package.json", srcs:list=[], deps:list=[], test_only=False, visibility:list=None,
               hashes=None):
     """
         Defines a node module which can be used as a library and depended on by a yarn_script rule.
@@ -128,7 +128,7 @@ def node_module(name:str, package_json:str="package.json", srcs:list=[], deps:li
         hashes = hashes,
     )
 
-def yarn_workspace(name:str, package_json:str="package.json", yarn_lock="yarn.lock", visibility:list=["PUBLIC"],
+def yarn_workspace_root(name:str, package_json:str="package.json", yarn_lock="yarn.lock", visibility:list=["PUBLIC"],
                    hashes:list=None):
     """
         Defined a yarn workspace that can be used to enable multiple yarn projects to exist in the same repository.
