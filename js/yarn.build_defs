@@ -44,9 +44,14 @@ def yarn_module(name, version, package_name=None, resolved_by:str='', out=None, 
         visibility = visibility,
     )
 
-def _yarn_install(third_party_location, production):
-    return [
-        "cd $PKG_DIR",
+def _yarn_install(third_party_location, production, environment_vars):
+    cmd = ["cd $PKG_DIR"]
+
+    for var in environment_vars.keys():
+        value = environment_vars[var]
+        cmd.append(f"export {var}={value}")
+
+    return cmd + [
         f"echo yarn-offline-mirror \"$TMP_DIR/{third_party_location}\" > .yarnrc",
         "$TOOLS_YARN --offline install --production" if production else "$TOOLS_YARN --offline install",
     ]
@@ -54,7 +59,7 @@ def _yarn_install(third_party_location, production):
 def yarn_script(name:str, script_name:str="build", args:str="", outs=[], package_json:str="package.json",
                 yarn_lock:str="yarn.lock", srcs:list, deps:list=[], test_only:bool=False, visibility:list=None,
                 third_party_location:str=CONFIG.YARN_OFFLINE_MIRROR, binary:bool=False, hashes:list=None,
-                workspace:str=CONFIG.YARN_WORKSPACE, production_only:bool=False):
+                environment_vars:dict={}, workspace:str=CONFIG.YARN_WORKSPACE, production_only:bool=False):
     """
         Runs a script within a node module handling the yarn install. This can be used to create bundles with tools
         like webpack.
@@ -73,11 +78,12 @@ def yarn_script(name:str, script_name:str="build", args:str="", outs=[], package
           third_party_location (str): The location of the third party offline mirror rules.
           binary (bool): If the outputs of this rule are binary. Default false.
           hashes (list): List of hashes that outputs must match.
+          environment_vars (dict): Map of environment variables to values. Some yarn packages may require these.
           workspace (str): The yarn workspace rule to use. If this is not set, the yarn.lock file is expected to exist
                            in the current node module.
           production_only (bool): Whether to install only the production dependencies i.e. not the dev dependencies
         """
-    cmd = _yarn_install(third_party_location, production_only)
+    cmd = _yarn_install(third_party_location, production_only, environment_vars)
 
     if script_name:
         cmd += [f"$TOOLS_YARN --offline run {script_name} {args}"]
@@ -92,7 +98,10 @@ def yarn_script(name:str, script_name:str="build", args:str="", outs=[], package
 
     return genrule(
         name = name,
-        srcs = srcs + [package_json],
+        srcs = {
+            'main': srcs,
+            'package_json': [package_json]
+        },
         cmd  = cmd,
         outs = outs,
         deps = deps,
