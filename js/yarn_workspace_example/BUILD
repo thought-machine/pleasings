@@ -1,6 +1,6 @@
-subinclude('//js:yarn')
+subinclude("//js:yarn")
 
-yarn_workspace(name = "workspace")
+yarn_workspace_root(name = "workspace")
 
 # This generates the third party build rules replacing the pleasings sub-repo paths with relative
 sh_cmd(
