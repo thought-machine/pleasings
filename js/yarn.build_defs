@@ -45,7 +45,7 @@ def yarn_module(name, version, package_name=None, resolved_by:str='', out=None, 
     )
 
 def _yarn_install(third_party_location, production, environment_vars):
-    cmd = ["cd $PKG_DIR"]
+    cmd = ["cd $(dirname $SRCS_PACKAGE_JSON)"]
 
     for var in environment_vars.keys():
         value = environment_vars[var]
