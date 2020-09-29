@@ -53,7 +53,7 @@ def _yarn_install(third_party_location, production, environment_vars):
 
     return cmd + [
         f"echo yarn-offline-mirror \"$TMP_DIR/{third_party_location}\" > .yarnrc",
-        "$TOOLS_YARN --offline install --production" if production else "$TOOLS_YARN --offline install",
+        "$TOOLS_YARN --frozen-lockfile --offline install --production" if production else "$TOOLS_YARN --frozen-lockfile --offline install",
     ]
 
 def yarn_script(name:str, script_name:str="build", args:str="", outs=[], package_json:str="package.json",
