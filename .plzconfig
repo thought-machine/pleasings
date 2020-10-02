@@ -6,6 +6,8 @@ path = /usr/local/bin:/usr/bin:/bin
 ; It's quite likely that anyone using Rust will have it here.
 path = ~/.cargo/bin
 path = ~/.yarn/bin
+path = ~/.nimble/bin
+PassEnv = USER
 
 [go]
 importpath = github.com/thought-machine/pleasings

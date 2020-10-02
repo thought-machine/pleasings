@@ -4,6 +4,6 @@ nim_binary(
     name = "main",
     main = "main.nim",
     deps = [
-        "//third_party/nim:wings",
+        "//third_party/nim:stones",
     ]
 )

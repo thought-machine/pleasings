@@ -1,3 +1,3 @@
-import wingspkg/core
+import stones/log
 
-echo "Import successful!"
+LOG(SUCCESS, "Import successful!")
