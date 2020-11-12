@@ -1,0 +1,79 @@
+def go_mock(name:str, src_lib:str, visibility:list=None, deps:list=[], package:str=package_name(), interfaces:list):
+    """Generates a Go library made up of mocks for the given source library.
+
+    This rule expects "//third_party/go:mock" and "//third_party/go:mockgen" to be defrined.
+    These are configurable through
+
+    [BuildConfig]
+    go-mock = //third_party/go:mock
+    mockgen-tool = //third_paty/go:mockgen
+
+
+    Args:
+      name (str): Name of the rule.
+      src_lib (list): The library containing the interfaces to mock
+      visibility (list): Visibility specification
+      deps (list): Any dependencies of the generated mocks.
+      package(str): The package of src_lib. Defaults to the current BUILD file package.
+      interfaces(list): A list of interfaces in src_lib to generate mocks for.
+    """
+
+    interfaces = ','.join(interfaces)
+
+    if CONFIG.GO_IMPORT_PATH and package == package_name():
+        package = f'{CONFIG.GO_IMPORT_PATH}/{package}'
+
+    reflect_program_file_name = f"_{name}_gomock_reflector.go"
+    reflect_program_src = genrule(
+        name=f"_{name}#reflect_program_src",
+        outs=[reflect_program_file_name],
+        binary=True,
+        test_only=True,
+        cmd=f"$TOOLS_MOCKGEN -prog_only {package} {interfaces} > {reflect_program_file_name}",
+        tools={
+            "MOCKGEN": [CONFIG.MOCKGEN_TOOL],
+        },
+    )
+
+    # This adds the srcs to the plz-out/go/srcs which is not good as it means we have multiple files
+    # with different packages in the same folder
+    reflect_program = go_binary(
+        name=f"_{name}#reflect_program",
+        srcs=[reflect_program_src],
+        filter_srcs=False,
+        test_only=True,
+        deps = [
+            src_lib,
+            CONFIG.GO_MOCK,
+        ],
+    )
+
+    mock_srcs_out = '%s.go' % name
+    mock_srcs = genrule(
+        name=f"_{name}#mock_srcs",
+        outs=[mock_srcs_out],
+        cmd=f"$TOOLS_MOCKGEN -exec_only $TOOLS_REFLECT_PROGRAM {package} {interfaces} > {mock_srcs_out}",
+        tools={
+            "MOCKGEN": [CONFIG.MOCKGEN_TOOL],
+            "REFLECT_PROGRAM": [reflect_program]
+        },
+        test_only=True,
+        deps=[
+            reflect_program,
+        ],
+    )
+
+    go_library(
+        name=name,
+        visibility=visibility,
+        out=f"{name}.a",
+        srcs=[mock_srcs],
+        test_only=True,
+        deps=[
+            src_lib,
+            CONFIG.GO_MOCK,
+        ] + deps,
+    )
+
+CONFIG.setdefault("GO_MOCK", "//third_party/go:mock")
+CONFIG.setdefault("MOCKGEN_TOOL", "//third_party/go:mockgen")

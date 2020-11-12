@@ -11,3 +11,9 @@ filegroup(
     srcs = ['go_generate.build_defs'],
     visibility = ['PUBLIC'],
 )
+
+filegroup(
+    name = 'mock',
+    srcs = ['go_mock.build_defs'],
+    visibility = ['PUBLIC'],
+)
