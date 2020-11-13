@@ -43,8 +43,9 @@ go_get(
     get = "golang.org/x/tools",
     install = [
         "cover",
+        "go/packages",
     ],
-    revision = "2ae76fd1560b622911f444c1e66b70a857e1de67",
+    revision = "5bcca83a78812bd91ce8cb29be4fc4521cdc8f6f",
 )
 
 go_get(
@@ -254,3 +255,24 @@ go_get(
     get = "gopkg.in/yaml.v2",
     revision = "f7716cbe52baa25d2e9b0d0da546fcf909fc16b4",
 )
+
+
+go_get(
+    name = "mockgen",
+    binary = True,
+    get = [],
+    install = ["github.com/golang/mock/mockgen"],
+    licences = ["apache-2.0"],
+    deps = [":mock"],
+)
+
+go_get(
+    name = "mock",
+    get = "github.com/golang/mock/...",
+    licences = ["apache-2.0"],
+    revision = "v1.4.4",
+    deps = [
+        ":tools",
+    ],
+)
+
