@@ -60,7 +60,7 @@ def k8s_config(name:str, srcs:list, containers:list=[], params:dict=None, visibi
         )
 
         # macos sed only supports posix regex expressions so escape sequences like \b don't work
-        boundary_expr = "\\b" if CONFIG.OS != 'darwin' else ""
+        boundary_expr = "\\b" if CONFIG.HOSTOS != 'darwin' else ""
         subcommands = ' '.join([
             f'-e "s|{container}{boundary_expr}|$(cat $(location {fqn}))|g"'
             for container, fqn in sorted(zip(containers, fqns))
