@@ -24,7 +24,7 @@ function dependants {
     # add a replace-me search for an interesting part of the URL
     echo "${URL}" | cut -f3-5 -d/ > "${OUTS}/.module_source_searches"
     # add a replace-me search for the canonical Please build rule
-    echo "${PKG}:${NAME}" | cut -f3-5 -d/ > "${OUTS}/.module_source_searches"
+    echo "${PKG}:${NAME}" >> "${OUTS}/.module_source_searches"
 }
 
 # strip removes the given files/directories from the module
