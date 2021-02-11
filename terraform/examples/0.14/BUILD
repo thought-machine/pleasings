@@ -1,6 +1,6 @@
 subinclude("//terraform")
 
-terraform(
+terraform_root(
     name = "example",
     srcs = ["main.tf"],
     toolchain = "//third_party/terraform:terraform_0_14",

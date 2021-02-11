@@ -3,9 +3,9 @@
 
 TERRAFORM_DEFAULT_TOOLCHAIN = CONFIG.get('terraform_default_toolchain') or "//third_party/binary:terraform"
 
-WORKSPACE_BUILDER_SRC = CONFIG.get('terraform_workspace_builder_src') or "//terraform/scripts:workspace_builder"
-RUNNER_SRC = CONFIG.get('terraform_runner_src') or "//terraform/scripts:runner"
-MODULE_BUILDER_SRC = CONFIG.get('terraform_module_builder_src') or "//terraform/scripts:module_builder"
+WORKSPACE_BUILDER_SRC = CONFIG.get('terraform_workspace_builder_src') or "//terraform/scripts:workspace_builder" or "//third_party/terraform:workspace_builder"
+RUNNER_SRC = CONFIG.get('terraform_runner_src') or "//terraform/scripts:runner" or "//third_party/terraform:runner"
+MODULE_BUILDER_SRC = CONFIG.get('terraform_module_builder_src') or "//terraform/scripts:module_builder" or "//third_party/terraform:module_builder"
 
 def terraform_toolchain(
     name:str,
@@ -93,7 +93,7 @@ echo "{version}" > $OUTS/.version
 
 def terraform_module(
     name: str,
-    srcs: list = None,
+    srcs: list = None, 
     url: str = None,
     strip: list = [],
     hashes: list = [],
@@ -115,7 +115,6 @@ def terraform_module(
         labels: The additonal labels to add to the build rule.
         visibility: The targets to make the toolchain visible to.
     """
-    _module_builder = _module_builder_bin(name)
     og_module=None
     if url:
         og_module=remote_file(
@@ -130,6 +129,7 @@ def terraform_module(
             name = f"_{name}_srcs",
             srcs = srcs,
             outs = [f"_{name}_srcs"],
+            # srcs in other directories should be modules
             cmd = "mkdir $OUTS && for src in $SRCS; do cp $src $OUTS/; done",
         )
     deps=[canonicalise(dep) for dep in deps]
@@ -146,7 +146,7 @@ def terraform_module(
         exported_deps=deps,
         deps=deps,
         visibility=visibility,
-        tools=[_module_builder],
+        tools=[MODULE_BUILDER_SRC],
         cmd = f"""
 set -euo pipefail
 {_bash_version_check_cmd}
@@ -155,16 +155,18 @@ URL="{url}"
 OG_MODULE_DIR="$(location {og_module})"
 {strip_bash_array}
 
-source "$(out_exe {_module_builder})"
+source "$(out_location {MODULE_BUILDER_SRC})"
         """,
     )
 
-def terraform(
+def terraform_root(
     name: str,
     srcs: list,
     modules: list = [],
     providers: list = [],
     toolchain: str = None,
+    pre_binaries: list = [],
+    post_binaries: list = [],
     labels: list = [],
     visibility: list = [],
 ):
@@ -176,15 +178,19 @@ def terraform(
         modules: The Terraform modules that the srcs use.
         providers: The Terraform providers that the srcs use.
         toolchain: The Terraform toolchain to use with against the srcs.
+        pre_binares: A list of binaries to run before performing Terraform commands. This is useful for preparing authentication.
+        post_binares: A list of binaries to run after performing Terraform commands. This is useful for cleaning up authentication, or alternate resource lifecycles.
         labels: The additonal labels to add to the build rule.
         visibility: The targets to make the toolchain visible to.
     """
     # determine the terraform binary to use
     toolchain = toolchain or TERRAFORM_DEFAULT_TOOLCHAIN
-    _runner = _runner_bin(name)
     
     # create a workspace for terraform to use
     workspace = _terraform_workspace(name, srcs, modules, providers, toolchain)
+
+    pre_binary_bash_array = _to_bash_array("PRE_BINARIES", [f"$(out_exe {b})" for b in pre_binaries])
+    post_binary_bash_array = _to_bash_array("POST_BINARIES", [f"$(out_exe {b})" for b in post_binaries])
 
     cmds = {
         "init": ["init"],
@@ -198,6 +204,7 @@ def terraform(
         "untaint": ["init", "untaint"],
         "plan": ["init", "plan"],
         "apply": ["init", "apply"],
+        "destroy": ["init", "destroy"],
     }
     for k in cmds.keys():
         commands = cmds[k]
@@ -212,32 +219,18 @@ set -euo pipefail
 
 TERRAFORM_BIN="$(out_exe {toolchain})"
 TERRAFORM_WORKSPACE="$(out_location {workspace})"
+{pre_binary_bash_array}
 {cmd_bash_array}
+{post_binary_bash_array}
 
-source "$(out_exe {_runner})"
+source "$(out_location {RUNNER_SRC})"
             """,
-            data = [workspace, toolchain, _runner],
+            data = [workspace, toolchain, RUNNER_SRC] + pre_binaries + post_binaries,
             labels = [f"terraform_{k}"] + labels,
             visibility = visibility,
         )
 
-def _workspace_builder_bin(name:str):
-    return sh_binary(
-        name = f"_{name}_workspace_builder",
-        main = WORKSPACE_BUILDER_SRC,
-    )
-
-def _runner_bin(name:str):
-    return sh_binary(
-        name = f"_{name}_runner",
-        main = RUNNER_SRC,
-    )
-
-def _module_builder_bin(name:str):
-    return sh_binary(
-        name = f"_{name}_module_builder",
-        main = MODULE_BUILDER_SRC,
-    )
+    _linters(name, toolchain, workspace, labels, visibility)
 
 _bash_version_check_cmd = """
 if [ -z "${BASH_VERSINFO}" ] || [ -z "${BASH_VERSINFO[0]}" ] || [ ${BASH_VERSINFO[0]} -lt 4 ]; then 
@@ -245,10 +238,6 @@ if [ -z "${BASH_VERSINFO}" ] || [ -z "${BASH_VERSINFO[0]}" ] || [ ${BASH_VERSINF
     exit 1
 fi
 """
-
-# TODO: pre-binaries and post-binaries support
-# TODO: linters support
-
 
 def _to_bash_array(var_name:str, items:list):
     bash_array=[f"{var_name}=()"]
@@ -269,8 +258,6 @@ def _terraform_workspace(
     providers: list = [],
     toolchain: str = None,
 ):
-    _workspace_builder = _workspace_builder_bin(name)
-    
     modules = [canonicalise(module) for module in modules]
     module_paths = {m : f"$(out_location {m})" for m in modules}
     module_paths_bash_map = _to_bash_map("MODULE_PATHS", module_paths)
@@ -278,8 +265,9 @@ def _terraform_workspace(
     return genrule(
         name = f"_{name}_wd",
         outs = [f"_{name}_wd"],
-        tools = [toolchain, _workspace_builder],
+        tools = [toolchain, WORKSPACE_BUILDER_SRC],
         srcs = {
+            # srcs in other directories should be modules
             "srcs": srcs,
             "modules": modules,
             "plugins": providers,
@@ -294,6 +282,39 @@ TERRAFORM_BIN="$(out_exe {toolchain})"
 
 {module_paths_bash_map}
 
-source "$(out_exe {_workspace_builder})"
+source "$(out_location {WORKSPACE_BUILDER_SRC})"
         """,
     )
+
+def _linters(
+    name:str,
+    toolchain:str,
+    workspace:str,
+    labels:list,
+    visibility:list,
+):
+    linters = {
+        "validate": ["\"init -backend=false\"", "validate"],
+        "fmt": ["\"fmt -check -diff\""],
+    }
+    for k in linters.keys():
+        commands = linters[k]
+        cmd_bash_array = _to_bash_array("TERRAFORM_CMDS", commands)
+
+        sh_cmd(
+            name = f"{name}_tf_{k}",
+            shell = "/bin/bash",
+            cmd = f"""
+set -euo pipefail
+{_bash_version_check_cmd}
+
+TERRAFORM_BIN="$(out_exe {toolchain})"
+TERRAFORM_WORKSPACE="$(out_location {workspace})"
+{cmd_bash_array}
+
+source "$(out_location {RUNNER_SRC})"
+            """,
+            data = [workspace, toolchain, RUNNER_SRC],
+            labels = [f"terraform_{k}", "lint"] + labels,
+            visibility = visibility,
+        )

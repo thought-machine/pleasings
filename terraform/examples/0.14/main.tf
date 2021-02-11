@@ -8,13 +8,13 @@ terraform {
 }
 
 provider "null" {
-  
+
 }
 
 resource "null_resource" "version" {
-    provisioner "local-exec" {
-        command = "terraform version"
-    }
+  provisioner "local-exec" {
+    command = "terraform version"
+  }
 }
 
 module "label" {

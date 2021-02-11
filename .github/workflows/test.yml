@@ -8,6 +8,11 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v2
 
+      - name: Terraform lint
+        run: ./pleasew run sequential --include lint //terraform/...
+        env:
+          TF_CLEAN_OUTPUT: "true"
+
       - name: Terraform plan
         run: ./pleasew query alltargets //terraform/... | grep "_plan$" | ./pleasew run sequential -
         env:
