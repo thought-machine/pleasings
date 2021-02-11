@@ -1,0 +1,299 @@
+"""Build rules for working with Hashicorp Terraform (https://terraform.io)
+"""
+
+TERRAFORM_DEFAULT_TOOLCHAIN = CONFIG.get('terraform_default_toolchain') or "//third_party/binary:terraform"
+
+WORKSPACE_BUILDER_SRC = CONFIG.get('terraform_workspace_builder_src') or "//terraform/scripts:workspace_builder"
+RUNNER_SRC = CONFIG.get('terraform_runner_src') or "//terraform/scripts:runner"
+MODULE_BUILDER_SRC = CONFIG.get('terraform_module_builder_src') or "//terraform/scripts:module_builder"
+
+def terraform_toolchain(
+    name:str,
+    version:str,
+    hashes:list = [],
+    labels: list = [],
+    visibility:list = [],
+):
+    """Build rule for obtaining a version of the Terraform CLI.
+
+    Args:
+        name: The name of the build rule.
+        version: The version of Terraform to download in MAJOR.MINOR.PATCH format. e.g. "0.12.3".
+        hashes: The hashes to verify the downloaded archive against.
+        labels: The additonal labels to add to the build rule.
+        visibility: The targets to make the toolchain visible to.
+    """
+    download=remote_file(
+        name = f"_{name}_download",
+        out = f"_{name}_download",
+        url = f"https://releases.hashicorp.com/terraform/{version}/terraform_{version}_{CONFIG.OS}_{CONFIG.ARCH}.zip",
+        hashes = hashes,
+        extract = True,
+    )
+    return genrule(
+        name=name,
+        srcs=[download],
+        # We output into a directory so we can add `terraform` to the PATH at runtime.
+        outs=[f"_{name}_download/terraform"],
+        cmd="mkdir -p $(dirname $OUTS) && mv $SRCS/terraform $OUTS",
+        visibility = visibility,
+        binary = True,
+    )
+
+def terraform_provider(
+    name: str,
+    version: str = None,
+    registry: str = "registry.terraform.io",
+    namespace: str = "hashicorp",
+    provider_name: str = None,
+    url: str = None,
+    hashes: list = [],
+    labels: list = [],
+    visibility: list = [],
+):
+    """Build rule for obtaining a Terraform Provider.
+
+    Args:
+        name: The name of the build rule.
+        version: The version of Terraform the Terraform Provider MAJOR.MINOR.PATCH format. e.g. "2.1.2".
+        registry: Terraform 0.13+ - The Terraform registy hostname this provider is from.
+        namespace: Terraform 0.13+ - The Terraform registy namespace this provider is in.
+        provider_name: Terraform 0.13+ - The Terraform registy type this provider is e.g. "null", defaults to name.
+        url: The url to download and extract the Terraform provider from.
+        hashes: The hashes to verify the downloaded archive against.
+        labels: The additonal labels to add to the build rule.
+        visibility: The targets to make the toolchain visible to.
+    """
+    provider_name = provider_name or name
+    url = url if url else f"https://releases.hashicorp.com/terraform-provider-{provider_name}/{version}/terraform-provider-{provider_name}_{version}_{CONFIG.OS}_{CONFIG.ARCH}.zip"
+    provider_download=remote_file(
+        name = f"_{name}_download",
+        url = url,
+        hashes = hashes,
+    )
+    provider=genrule(
+        name = name,
+        srcs = [provider_download],
+        # We extract the binary into a directory here 
+        # to preserve the filename which is usually
+        # terraform-provider-aws_v2.70.0_x4
+        cmd = f"""
+unzip $SRCS -d tmp
+mkdir $OUTS
+mv tmp/* $OUTS/
+echo "{registry}" > $OUTS/.registry
+echo "{namespace}" > $OUTS/.namespace
+echo "{provider_name}" > $OUTS/.provider_name
+echo "{version}" > $OUTS/.version
+""",
+        outs = [name],
+        visibility = visibility,
+    )
+
+
+def terraform_module(
+    name: str,
+    srcs: list = None,
+    url: str = None,
+    strip: list = [],
+    hashes: list = [],
+    deps: list = [],
+    licences: list = [],
+    labels: list = [],
+    visibility: list = [],
+):
+    """Build rule for obtaining a remote Terraform Module or defining a local Terraform module.
+
+    Args:
+        name: The name of the build rule.
+        srcs: The source Terraform files for the Terraform module.
+        url: The url to download and extract the Terraform module from.
+        strip: The files/directories to strip from the module.
+        hashes: The hashes to verify the downloaded archive against.
+        deps: The modules that this module depends on.
+        licences: The licences associated with the module.
+        labels: The additonal labels to add to the build rule.
+        visibility: The targets to make the toolchain visible to.
+    """
+    _module_builder = _module_builder_bin(name)
+    og_module=None
+    if url:
+        og_module=remote_file(
+            name = f"_{name}_download",
+            url = url,
+            hashes = hashes,
+            licences = licences,
+            extract = True,
+        )
+    else:
+        og_module=genrule(
+            name = f"_{name}_srcs",
+            srcs = srcs,
+            outs = [f"_{name}_srcs"],
+            cmd = "mkdir $OUTS && for src in $SRCS; do cp $src $OUTS/; done",
+        )
+    deps=[canonicalise(dep) for dep in deps]
+
+    strip_bash_array = _to_bash_array("STRIP", strip)
+
+    genrule(
+        name = name,
+        srcs = {
+            "og" : [og_module],
+            "deps" : deps,
+        },
+        outs = [name],
+        exported_deps=deps,
+        deps=deps,
+        visibility=visibility,
+        tools=[_module_builder],
+        cmd = f"""
+set -euo pipefail
+{_bash_version_check_cmd}
+
+URL="{url}"
+OG_MODULE_DIR="$(location {og_module})"
+{strip_bash_array}
+
+source "$(out_exe {_module_builder})"
+        """,
+    )
+
+def terraform(
+    name: str,
+    srcs: list,
+    modules: list = [],
+    providers: list = [],
+    toolchain: str = None,
+    labels: list = [],
+    visibility: list = [],
+):
+    """Build rule for running Terraform against Terraform configuration.
+
+    Args:
+        name: The name of the build rule.
+        srcs: The source Terraform files.
+        modules: The Terraform modules that the srcs use.
+        providers: The Terraform providers that the srcs use.
+        toolchain: The Terraform toolchain to use with against the srcs.
+        labels: The additonal labels to add to the build rule.
+        visibility: The targets to make the toolchain visible to.
+    """
+    # determine the terraform binary to use
+    toolchain = toolchain or TERRAFORM_DEFAULT_TOOLCHAIN
+    _runner = _runner_bin(name)
+    
+    # create a workspace for terraform to use
+    workspace = _terraform_workspace(name, srcs, modules, providers, toolchain)
+
+    cmds = {
+        "init": ["init"],
+        "console": ["init", "console"],
+        "graph": ["init", "graph"],
+        "import": ["init", "import"],
+        "output": ["init", "output"],
+        "providers": ["init", "providers"],
+        "refresh": ["init", "refresh"],
+        "taint": ["init", "taint"],
+        "untaint": ["init", "untaint"],
+        "plan": ["init", "plan"],
+        "apply": ["init", "apply"],
+    }
+    for k in cmds.keys():
+        commands = cmds[k]
+        cmd_bash_array = _to_bash_array("TERRAFORM_CMDS", commands)
+
+        sh_cmd(
+            name = f"{name}_tf_{k}",
+            shell = "/bin/bash",
+            cmd = f"""
+set -euo pipefail
+{_bash_version_check_cmd}
+
+TERRAFORM_BIN="$(out_exe {toolchain})"
+TERRAFORM_WORKSPACE="$(out_location {workspace})"
+{cmd_bash_array}
+
+source "$(out_exe {_runner})"
+            """,
+            data = [workspace, toolchain, _runner],
+            labels = [f"terraform_{k}"] + labels,
+            visibility = visibility,
+        )
+
+def _workspace_builder_bin(name:str):
+    return sh_binary(
+        name = f"_{name}_workspace_builder",
+        main = WORKSPACE_BUILDER_SRC,
+    )
+
+def _runner_bin(name:str):
+    return sh_binary(
+        name = f"_{name}_runner",
+        main = RUNNER_SRC,
+    )
+
+def _module_builder_bin(name:str):
+    return sh_binary(
+        name = f"_{name}_module_builder",
+        main = MODULE_BUILDER_SRC,
+    )
+
+_bash_version_check_cmd = """
+if [ -z "${BASH_VERSINFO}" ] || [ -z "${BASH_VERSINFO[0]}" ] || [ ${BASH_VERSINFO[0]} -lt 4 ]; then 
+    echo "This script requires Bash version >= 4"
+    exit 1
+fi
+"""
+
+# TODO: pre-binaries and post-binaries support
+# TODO: linters support
+
+
+def _to_bash_array(var_name:str, items:list):
+    bash_array=[f"{var_name}=()"]
+    bash_array+=[f"{var_name}+=({i})" for i in items]
+    return "\n".join(bash_array)
+
+def _to_bash_map(var_name:str, items:dict):
+    bash_map=[f"declare -A {var_name}"]
+    for k in items.keys():
+        v = items[k]
+        bash_map+=[f'{var_name}["{k}"]="{v}"']
+    return "\n".join(bash_map)
+
+def _terraform_workspace(
+    name: str,
+    srcs: list,
+    modules: list = [],
+    providers: list = [],
+    toolchain: str = None,
+):
+    _workspace_builder = _workspace_builder_bin(name)
+    
+    modules = [canonicalise(module) for module in modules]
+    module_paths = {m : f"$(out_location {m})" for m in modules}
+    module_paths_bash_map = _to_bash_map("MODULE_PATHS", module_paths)
+
+    return genrule(
+        name = f"_{name}_wd",
+        outs = [f"_{name}_wd"],
+        tools = [toolchain, _workspace_builder],
+        srcs = {
+            "srcs": srcs,
+            "modules": modules,
+            "plugins": providers,
+        },
+        cmd = f"""
+set -euo pipefail
+{_bash_version_check_cmd}
+
+CONFIG_OS="{CONFIG.OS}"
+CONFIG_ARCH="{CONFIG.ARCH}"
+TERRAFORM_BIN="$(out_exe {toolchain})"
+
+{module_paths_bash_map}
+
+source "$(out_exe {_workspace_builder})"
+        """,
+    )
