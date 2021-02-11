@@ -11,7 +11,7 @@ function dependencies {
     mkdir "${OUTS}/modules/"
     for m in $SRCS_DEPS; do
         replace=$(basename "$m")
-        searches=($(<"${m}/.module_source_searches"))
+        mapfile -t searches <"${m}/.module_source_searches"
         for search in "${searches[@]}"; do
             find . -name "*.tf" -exec sed -i  "s#[^\"]*${search}[^\"]*#./modules/${replace}#g" {} +
         done

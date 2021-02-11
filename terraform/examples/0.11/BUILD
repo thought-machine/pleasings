@@ -2,7 +2,7 @@ subinclude("//terraform")
 
 terraform_root(
     name = "example",
-    srcs = ["main.tf"],
+    srcs = ["main.tf", "data.tf"],
     toolchain = "//third_party/terraform:terraform_0_11",
     providers = [
         "//third_party/terraform/provider:null",

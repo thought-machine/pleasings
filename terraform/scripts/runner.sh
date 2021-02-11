@@ -16,18 +16,18 @@ TF_CLEAN_OUTPUT="${TF_CLEAN_OUTPUT:-false}"
 # tf_clean_output strips the Terraform output down. 
 # This is useful in CI/CD where Terraform logs are usually noisy by default.
 function tf_clean_output {
-    local cmd extra_args is_last
-    cmd=($(echo "${1}"))
+    local cmds extra_args is_last
+    IFS=" " read -r -a cmds <<< "$1"
     shift
     is_last="$1"
     shift
     extra_args=("${@}")
 
-    args=("${cmd[@]}")
+    args=("${cmds[@]}")
     if [ "${is_last}" == "true" ]; then
         args=("${args[@]}" "${extra_args[@]}")
     fi
-    echo "..> terraform ${args[@]}"
+    echo "..> terraform ${args[*]}"
     if [ "${TF_CLEAN_OUTPUT}" == "false" ]; then
         "${TERRAFORM_BIN}" "${args[@]}"
     else

@@ -70,7 +70,7 @@ function modules {
 
     for module in "${!MODULE_PATHS[@]}"; do
         path="${MODULE_PATHS[$module]}"
-        sed -i "s#${module}#${rel_module_dir}/$(basename "${path}")#g" "$SRCS_SRCS"
+        find "${PKG_DIR}" -maxdepth 1 -name "*.tf" -exec sed -i "s#${module}#${rel_module_dir}/$(basename "${path}")#g" {} +
     done
 }
 
