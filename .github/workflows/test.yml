@@ -1,0 +1,20 @@
+name: Test
+on: [push]
+jobs:
+  terraform:
+    name: Test Terraform
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Terraform plan
+        run: ./pleasew query alltargets //terraform/... | grep "_plan$" | ./pleasew run sequential -
+        env:
+          TF_CLEAN_OUTPUT: "true"
+
+      - name: Terraform apply
+        run: ./pleasew query alltargets //terraform/... | grep "_apply$" | ./pleasew run sequential -
+        env:
+          TF_CLI_ARGS_apply: "-auto-approve"
+          TF_CLEAN_OUTPUT: "true"
