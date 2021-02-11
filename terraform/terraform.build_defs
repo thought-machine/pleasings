@@ -1,11 +1,11 @@
 """Build rules for working with Hashicorp Terraform (https://terraform.io)
 """
 
-TERRAFORM_DEFAULT_TOOLCHAIN = CONFIG.get('terraform_default_toolchain') or "//third_party/binary:terraform"
+TERRAFORM_DEFAULT_TOOLCHAIN = CONFIG.get('TERRAFORM_DEFAULT_TOOLCHAIN') or "//third_party/binary:terraform"
 
-WORKSPACE_BUILDER_SRC = CONFIG.get('terraform_workspace_builder_src') or "//terraform/scripts:workspace_builder" or "//third_party/terraform:workspace_builder"
-RUNNER_SRC = CONFIG.get('terraform_runner_src') or "//terraform/scripts:runner" or "//third_party/terraform:runner"
-MODULE_BUILDER_SRC = CONFIG.get('terraform_module_builder_src') or "//terraform/scripts:module_builder" or "//third_party/terraform:module_builder"
+MODULE_BUILDER_SRC = CONFIG.get('TERRAFORM_MODULE_BUILDER_SRC') or "//third_party/terraform:module_builder"
+RUNNER_SRC = CONFIG.get('TERRAFORM_RUNNER_SRC') or "//third_party/terraform:runner"
+WORKSPACE_BUILDER_SRC = CONFIG.get('TERRAFORM_WORKSPACE_BUILDER_SRC') or "//third_party/terraform:workspace_builder"
 
 def terraform_toolchain(
     name:str,
@@ -174,7 +174,7 @@ def terraform_root(
 
     Args:
         name: The name of the build rule.
-        srcs: The source Terraform files.
+        srcs: The source Terraform files for the root module.
         modules: The Terraform modules that the srcs use.
         providers: The Terraform providers that the srcs use.
         toolchain: The Terraform toolchain to use with against the srcs.

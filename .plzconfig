@@ -23,6 +23,10 @@ default-docker-repo = repo.please.build
 ; yarn
 yarn-workspace = //js/yarn_workspace_example:workspace
 yarn-offline-mirror = js/yarn_workspace_example/third_party
+; terraform
+terraform-module-builder-src = //terraform/scripts:module_builder
+terraform-runner-src = //terraform/scripts:runner
+terraform-workspace-builder-src = //terraform/scripts:workspace_builder
 
 [proto]
 protoctool = //third_party/proto:protoc
