@@ -1,1 +1,1 @@
-resource "null_resource" "version" {}
+resource "null_resource" "empty" {}
