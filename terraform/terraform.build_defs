@@ -193,18 +193,10 @@ def terraform_root(
     post_binary_bash_array = _to_bash_array("POST_BINARIES", [f"$(out_exe {b})" for b in post_binaries])
 
     cmds = {
-        "init": ["init"],
-        "console": ["init", "console"],
-        "graph": ["init", "graph"],
-        "import": ["init", "import"],
-        "output": ["init", "output"],
-        "providers": ["init", "providers"],
-        "refresh": ["init", "refresh"],
-        "taint": ["init", "taint"],
-        "untaint": ["init", "untaint"],
         "plan": ["init", "plan"],
         "apply": ["init", "apply"],
         "destroy": ["init", "destroy"],
+        "bin": [],
     }
     for k in cmds.keys():
         commands = cmds[k]

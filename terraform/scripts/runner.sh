@@ -59,6 +59,11 @@ for i in "${!TERRAFORM_CMDS[@]}"; do
     echo ""
 done
 
+# if there's no TERRAFORM_CMDS given, we assume that we just want to run Terraform directly with the given args.
+if [ "${#TERRAFORM_CMDS[@]}" == "0" ]; then
+    "${TERRAFORM_BIN}" "${@}"
+fi
+
 for bin in "${POST_BINARIES[@]}"; do
     "${ABS}/${bin}"
 done

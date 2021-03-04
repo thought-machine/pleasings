@@ -63,17 +63,10 @@ terraform {
 The above will result in a terraform state tree consistent with the structure of your repository.
 
 This build rule generates the following subrules which perform the Terraform workflows:
- * `terraform init`
- * `terraform console`
- * `terraform graph`
- * `terraform import`
- * `terraform output`
- * `terraform providers`
- * `terraform taint`
- * `terraform untaint`
- * `terraform plan`
- * `terraform apply`
- * `terraform destroy`
+ * `_plan`
+ * `_apply`
+ * `_destroy`
+ * `_bin` for all other workflows e.g. `plz run //my_infrastructure_tf_bin -- init && plz run //my_infrastructure_tf_bin -- console`
 
 For all of these workflows, we support passing in flags via please as expected, e.g.:
 ```
