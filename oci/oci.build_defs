@@ -1,68 +1,150 @@
-def oci_image(name:str, base_image:str='', srcs:list=[], image:str='', version:str='',
-                 dockerfile:str='', containerfile:str='', entrypoint:list=[], repo:str='', labels:list=[],
-                 run_args:str='', test_only:bool=False, visibility:list=None):
-    """oci_image defines a build rule for an OCI image.
+def container_image(
+    name:str, base_image='', transitive_base_images=[], srcs=[],image='', version='', dockerfile='',
+    containerfile='', entrypoint=[], cmd=[], repo=CONFIG.get('DEFAULT_DOCKER_REPO', ''),
+    labels=[], test_only=False, visibility:list=None
+):
+    """Build an OCI-compliant image. Uses incremental layering to optimise for please. The OCI
+    Specification standardises the docker image format https://github.com/opencontainers/image-spec.
 
-    You must use `plz run` to actually build the target.
+    You must have buildah and skopeo installed. They don't run as root so you may need to add to the
+    user namespaces in /etc/subuid and /etc/subgid. If your build fails from this you can try:
+    `usermod --add-subuids <unused subuid>-165535 --add-subgids <unused subgid>-165535 <username>`
+    'Fuse-overlayfs' is also recommended for faster builds. Once installed, buildah will start using
+    it automatically.
+    Docker is not required for builds, but you will need either podman or docker to run the images.
 
     Args:
       name: Name of the rule.
-      base_image: The build target that defines the base image. Only necessary if this image
-                  is based off another plz image.
+      base_image: The build target or image name to use as a base. Overrides the 'FROM' command in a
+                  Containerfile. If supplying an image name instead of a target, include the digest
+                  to ensure deterministic builds.
+      transitive_base_images: A list of container_image targets on which the base_image depends, if
+                              any. Required as artifacts do not contain the layers of their bases.
       srcs: Source files that are available within the containerfile.
-      image: Name of the image to create.
-      containerfile: The Dockerfile that defines how to build this image.
-      repo: Repository to store this image in. If not given then you'll need to set
-            default-oci-repo in the [buildconfig] section of your .plzconfig.
+      image: Name of the image to create, otherwise defaults to the rule path.
+      version: Optional version to tag the image. If not set, a hash will be used.
+      containerfile: Optional Containerfile or Dockerfile that defines how to build this image.
+      dockerfile: Duplicate of 'containerfile', for backwards compatability.
+      entrypoint: (when not using containerfile) The entrypoint of the image, as a list of commands.
+      cmd: (when not using containerfile) The 'cmd' of the image, as a list of commands. For
+           single-source images, defaults to a command running that source.
+      repo: Optional repository to hold this image. Can also provide env var when calling '_push'.
       labels: Labels to tag this rule with.
-      run_args: Any additional arguments to provide to 'oci run'.
       test_only: If True, this can only be depended on by test rules.
       visibility: Visibility of this rule.
     """
-    image = image or f"$PKG/{name}"
-    assert not image.startswith('//'), 'image argument is not a build label (should not start with //)'
-    if dockerfile:
-        containerfile = dockerfile
-
-    # image rule, builds the image and stores it as an oci formatted directory.
-    all_srcs = {}
-    context = ""
-    cmd = ["trap '$TOOL rmi -af' EXIT"]
-    if base_image:
-        if base_image.startswith("//") or base_image.startswith(":"):
-            all_srcs['base'] = [f'{base_image}']
-            base_image = 'from oci:"$SRCS_BASE"'
-        else:
-            base_image = f'from "{base_image}"'
-    if srcs:
-        context = "$TMPDIR/context"
-        all_srcs['context'] = srcs
-        cmd += [f"mkdir {context}", f"mv $SRCS_CONTEXT {context}"]
+    img_id = f"$PKG/{name}"
+    image = image or img_id
+    assert not image.startswith('//'), 'cannot use a build label for image argument'
+    if repo and not repo.endswith('/'):
+        repo += '/'
     if containerfile:
-        all_srcs['containerfile'] = [f'{containerfile}']
-        containerfile = '-f "$SRCS_CONTAINERFILE"'
-        if base_image:
-            base_image = f'--{base_image}'
-        cmd += [f'$TOOL bud --timestamp 0 {base_image} {containerfile} -t "{image}" {context}']
-    else:
-        cmd += [f'ctr=$($TOOL {base_image})']
+        dockerfile = containerfile
+    transitive_base_images = [canonicalise(rule) for rule in transitive_base_images]
+    base_image_target = base_image
+
+    def assert_transitive_base_images_present():
+        """
+        Currently no way to automatically add transitive 'data' dependencies,
+        so this checks the user has provided them explicitly.
+        """
+        bases = get_labels(base_image_target, 'base:')
+        for base in bases:
+            assert base in transitive_base_images, f"{base} missing from transitive_base_images arg"
+
+    def format_base_image(srcs_dict:dict, cmds:list, labels:list):
+        """
+        Format the base image for use by buildah.
+        """
+        pre_build = None
+        # if the base is target, add its layers and those of its parents as dependencies
+        if base_image.startswith("//") or base_image.startswith(":"):
+            pre_build = lambda rule: assert_transitive_base_images_present()
+            base_image = canonicalise(base_image)
+            labels += [f'base:{base_image}']
+            srcs_dict['base'] = [base_image]
+            base_image = 'oci:"$SRCS_BASE"'
+            if transitive_base_images:
+                srcs_dict['transitive_base'] = transitive_base_images
+                for base in transitive_base_images:
+                    # link the missing layers from the base's parents into the base layer store
+                    cmds += [f'cp -l $(location {base})/blobs/sha256/* "$SRCS_BASE/blobs/sha256"']
+        return base_image, cmds, labels, pre_build
+
+    def context(srcs_dict:dict, cmds:list):
+        """
+        Collect the source files in a temporary context dir.
+        """
+        context = ''
         if srcs:
-            cmd += [f'$TOOL copy "$ctr" {context} .']
+            context = "$TMPDIR/context"
+            srcs_dict['context'] = srcs
+            cmds += [f'mkdir "{context}"', f'mv "$SRCS_CONTEXT" "{context}"']
+        return context, cmds
+
+    def build_using_dockerfile(srcs_dict:dict, cmds:list, base_image:str, context:str):
+        """
+        Essentially a 'docker build', but using buildah
+        """
+        srcs_dict['dockerfile'] = [f'{dockerfile}']
+        if base_image:
+            base_image = f'--from "{base_image}"'
+        cmds += [f'$TOOL bud --timestamp 0 {base_image} -f "$SRCS_DOCKERFILE" -t "{img_id}" "{context}"']
+        return img_id, cmds
+
+    def build(srcs_dict:dict, cmds:list, base_image:str, context:str, entrypoint:list, cmd:list):
+        """
+        Without a dockerfile, use the buildah cli to add layers
+        """
+        cmds += [f'ctr=$($TOOL from "{base_image}")']
+        if context:
+            cmds += [f'$TOOL copy "$ctr" "{context}" .']
         if entrypoint:
-            cmd += [f'$TOOL config --entrypoint "{entrypoint}" "$ctr"']
-        cmd += [f'$TOOL commit "$ctr" "{image}"']
-    cmd += [f'$TOOL push "{image}" "oci:$OUT"']
+            entrypoint = _format_exec_list(entrypoint)
+            cmds += [f'$TOOL config --entrypoint "{entrypoint}" "$ctr"']
+        elif not cmd and 'context' in srcs_dict and len(srcs_dict['context']) == 1:
+            # default command runs the source if only one is provided
+            cmd = ['/`basename "$SRCS_CONTEXT"`']
+        if cmd:
+            cmd = _format_exec_list(cmd)
+            cmds += [f'$TOOL config --cmd "{cmd}" "$ctr"']
+        # commit the image and remove the working container
+        cmds += [f'$TOOL commit --omit-timestamp "$ctr" "{img_id}"', f'$TOOL rm "$ctr"']
+        return img_id, cmds
+
+    # image rule, builds the image and stores it as an oci-formatted dir.
+    srcs_dict = {}
+    cmds = [
+        # Buildah uses an image store, which can be ephemeral, except that please fails to delete it
+        # due to permissions. This uses a cache in the tempdir, but outside the build rule dir,
+        # where it doesnt have to be deleted by please. Also provides an i/o performance boost.
+        'STORE=${HOME%plz-out/*}plz-out/tmp/.containers/storage',
+        'TOOL="$TOOL --root=$STORE --runroot=/run/user/$UID"',
+    ]
+    base_image, cmds, labels, pre_build = format_base_image(srcs_dict, cmds, labels)
+    context, cmds = context(srcs_dict, cmds)
+    if dockerfile:
+        img_id, cmds = build_using_dockerfile(srcs_dict, cmds, base_image, context)
+    else:
+        img_id, cmds = build(srcs_dict, cmds, base_image, context, entrypoint, cmd)
+    # Write the compressed layers to OUT then remove the image from buildah's store.
+    cmds += [f'$TOOL push "{img_id}" "oci:$OUT"', f'$TOOL rmi -f "{img_id}"']
+    if srcs_dict.get('base'):
+        # Remove base image layers, leaving a small incremental artifact for fast http caching.
+        cmds += ['cd "$SRCS_BASE/blobs/sha256"', 'find . -exec rm -rf $OUT/blobs/sha256/{} \;']
     image_rule = genrule(
-        name = name,
-        srcs = all_srcs,
-        cmd = ' && '.join(cmd),
-        outs = [f'{name}_oci'],
-        labels = labels + ["oci-image"],
-        visibility = visibility,
-        test_only = test_only,
-        tools = [CONFIG.BUILDAH_TOOL],
+        name=name,
+        srcs=srcs_dict,
+        cmd=cmds,
+        outs=[name],
+        labels=labels + ["container-image"],
+        pre_build=pre_build,
+        visibility=visibility,
+        test_only=test_only,
+        tools=[CONFIG.BUILDAH_TOOL],
     )
 
+    # tag_rule, either a unique hash or the supplied version.
     if version:
         srcs = []
     else:
@@ -74,85 +156,95 @@ def oci_image(name:str, base_image:str='', srcs:list=[], image:str='', version:s
         else:
             version = 'no_idea_how_to_compute_version_on_this_host'
     tag_rule = build_rule(
-        name = name + '_tag',
-        srcs = srcs,
-        cmd = f'echo -n "{version}" >> $OUT',
-        outs = [f'{name}_tag'],
-        labels = labels + ["oci-tag"],
-        visibility = visibility,
-        test_only = test_only,
+        name=name + '_tag',
+        srcs=srcs,
+        cmd=f'echo -n "{version}" >> $OUT',
+        outs=[f'{name}_tag'],
+        labels=labels + ["image-tag"],
+        visibility=visibility,
+        test_only=test_only,
     )
 
-    if repo:
-        repo += "/"
+    # fully qualified name in the format [repo/]image:tag. Tag is either version or a unique hash.
     fqn = build_rule(
-        name = name + '_fqn',
-        srcs = [tag_rule],
-        cmd = f'echo -n "{repo}{image}:`cat $SRC`" >> $OUT',
-        outs = [f'{name}_fqn'],
-        labels = labels + ["oci-fqn"],
-        visibility = visibility,
-        test_only = test_only,
+        name=name + '_fqn',
+        srcs=[tag_rule],
+        cmd=f'echo -n "{repo}{image}:`cat $SRC`" >> $OUT',
+        outs=[f'{name}_fqn'],
+        labels=labels + ["image-fqn"],
+        visibility=visibility,
+        test_only=test_only,
     )
 
-    # save_rule, duplicates build rule to match docker_image build defs
-    sh_cmd(
-        name = name + '_save',
-        data = [image_rule],
-        cmd = '',
-        visibility = visibility,
-        test_only = test_only,
-        labels = labels + ["oci-save"],
-    )
+    # for all run rules, first link base image(s) layers into the image store so it is complete.
+    data = [image_rule]
+    cmds = []
+    if srcs_dict.get('base'):
+        base_images = transitive_base_images + srcs_dict['base']
+        data += base_images
+        cmds += ['tmp_dir=\\\$(mktemp -d)', f'cp -rl $(out_location {image_rule})/* \\\$tmp_dir']
+        for base in base_images:
+            cmds += [f'cp -l $(out_location {base})/blobs/sha256/* "\\\$tmp_dir/blobs/sha256"']
+        img_loc = f'oci:\\\$tmp_dir'
+    else:
+        img_loc = f'oci:$(out_location {image_rule})'
 
-    # run_rule, loads the image and runs it using podman or docke if podman not found.
-    if run_args:
-        run_args = f"-- {run_args}"
+    # run_rule, runs the image using podman or docker if podman not found.
     cmd = f'''
-    if ! command -v {CONFIG.PODMAN_TOOL} &> /dev/null; then
-        {CONFIG.SKOPEO_TOOL} copy -q oci:$(out_location {image_rule}) "docker-daemon:`cat $SRC`"
-        docker run -it `cat $SRC` {run_args} \\\$@
+    if [ ! $(command -v {CONFIG.PODMAN_TOOL} &> /dev/null) ]; then
+        {CONFIG.SKOPEO_TOOL} copy -q {img_loc} "docker-daemon:`cat $SRC`"
+        docker run -it `cat $SRC` \\\$@
     else
-        {CONFIG.PODMAN_TOOL} run -it oci:$(out_location {image_rule}) {run_args} \\\$@
+        {CONFIG.PODMAN_TOOL} run -it {img_loc} \\\$@
     fi'''
     sh_cmd(
-        name = name + '_run',
-        cmd = cmd,
-        srcs = [fqn],
-        data = [image_rule],
-        visibility = visibility,
-        test_only = test_only,
-        labels = labels + ["oci-run"],
+        name=name + '_run',
+        cmd=cmds + [cmd],
+        srcs=[fqn],
+        data=data,
+        visibility=visibility,
+        test_only=test_only,
+        labels=labels + ["image-run"],
     )
 
     # push_rule, push the image to a registry or other destination
     # Configured with env vars:
-    # DEST: (skopeo repository type https://github.com/containers/skopeo), default is docker://
-    # REPO: e.g. docker.io/library, default is as provided on build target
-    # TAG: Image tag, default is version on the build target, or a unique hash.
-    cmd = f'{CONFIG.SKOPEO_TOOL} copy oci:$(out_location {image_rule}) '
-    cmd += f'\\\${{DEST:-docker://}}\\\${{REPO:-{repo}}}\\\${{REPO:+/}}{image}:\\\${{TAG:-`cat $SRC`}}'
+    # DEST: (skopeo repository type https://github.com/containers/skopeo), default is 'docker://'
+    # REPO: Image registry e.g. 'docker.io/library', default is from the build rule argument.
+    # TAG: Tag to export the image with, default is version on the build target, or a unique hash.
+    cmds += [
+        f'from="oci:$(out_location {image_rule})"',
+        f'to="\\\${{DEST:-docker://}}\\\${{REPO:-{repo}}}\\\${{REPO:+/}}{image}:\\\${{TAG:-`cat $SRC`}}"',
+        f'{CONFIG.SKOPEO_TOOL} copy -q {img_loc} "\\\$to"',
+        'echo "\\\$from copied to \\\$to"',
+    ]
     sh_cmd(
-        name = name + '_push',
-        cmd = cmd,
-        srcs = [tag_rule],
-        data = [image_rule],
-        visibility = visibility,
-        test_only = test_only,
-        labels = labels + ["oci-push"],
+        name=name + '_push',
+        cmd=cmds + [cmd],
+        srcs=[tag_rule],
+        data=data,
+        visibility=visibility,
+        test_only=test_only,
+        labels=labels + ["image-push"],
     )
-    # load_rule, essentially copy_rule but with the destination set to 'docker-daemon:'
+    # load_rule, essentially _push but with the destination set to 'docker-daemon:'
+    # loads the image into the local docker daemon for backwards compatibility
     sh_cmd(
-        name = name + '_load',
-        cmd = ['export DEST="docker-daemon:"', cmd],
-        srcs = [tag_rule],
-        data = [image_rule],
-        visibility = visibility,
-        test_only = test_only,
-        labels = labels + ["oci-load"],
+        name=name + '_load',
+        cmd=['export DEST="docker-daemon:"'] + cmds,
+        srcs=[tag_rule],
+        data=data,
+        visibility=visibility,
+        test_only=test_only,
+        labels=labels + ["image-load"],
     )
 
     return image_rule
+
+def _format_exec_list(cmds: list) -> str:
+    """get commands in the docker exec format e.g. ["cmd1", "cmd2"] """
+    cmds = '\\",\\"'.join(cmds)
+    return f'[\\"{cmds}\\"]'
 
 
 CONFIG.setdefault('BUILDAH_TOOL', 'buildah')

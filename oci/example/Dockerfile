@@ -1,3 +1,3 @@
-FROM gcr.io/distroless/python3
+FROM any-placeholder-here
 COPY . .
 CMD [ "example.pex" ]

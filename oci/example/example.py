@@ -14,7 +14,7 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     address = ('', 8000)
     server = HTTPServer(address, Handler)
-    print('Serving on      localhost:8000')
+    print('Serving on localhost:8000')
     server.serve_forever()
 
 
