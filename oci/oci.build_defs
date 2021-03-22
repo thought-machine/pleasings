@@ -109,17 +109,17 @@ def container_image(
             cmd = _format_exec_list(cmd)
             cmds += [f'$TOOL config --cmd "{cmd}" "$ctr"']
         # commit the image and remove the working container
-        cmds += [f'$TOOL commit --omit-timestamp "$ctr" "{img_id}"', f'$TOOL rm "$ctr"']
+        cmds += [f'$TOOL commit --omit-timestamp "$ctr" "{img_id}"']
         return img_id, cmds
 
     # image rule, builds the image and stores it as an oci-formatted dir.
     srcs_dict = {}
     cmds = [
         # Buildah uses an image store, which can be ephemeral, except that please fails to delete it
-        # due to permissions. This uses a cache in the tempdir, but outside the build rule dir,
-        # where it doesnt have to be deleted by please. Also provides an i/o performance boost.
-        'STORE=${HOME%plz-out/*}plz-out/tmp/.containers/storage',
-        'TOOL="$TOOL --root=$STORE --runroot=/run/user/$UID"',
+        # due to permissions. This uses a cache in /tmp, outside the build rule dir, where it
+        # doesnt have to be deleted by please. It is deleted on successful build or system restart.
+        'STORE=$(TMPDIR=/tmp mktemp -d)',
+        'TOOL="$TOOL --root=$STORE/containers --runroot=$STORE/run"',
     ]
     base_image, cmds, labels, pre_build = format_base_image(srcs_dict, cmds, labels)
     context, cmds = context(srcs_dict, cmds)
@@ -128,10 +128,12 @@ def container_image(
     else:
         img_id, cmds = build(srcs_dict, cmds, base_image, context, entrypoint, cmd)
     # Write the compressed layers to OUT then remove the image from buildah's store.
-    cmds += [f'$TOOL push "{img_id}" "oci:$OUT"', f'$TOOL rmi -f "{img_id}"']
+    cmds += [f'$TOOL push "{img_id}" "oci:$OUT"']
     if srcs_dict.get('base'):
         # Remove base image layers, leaving a small incremental artifact for fast http caching.
         cmds += ['cd "$SRCS_BASE/blobs/sha256"', 'find . -exec rm -rf $OUT/blobs/sha256/{} \;']
+    # Best effort cleanup. If this is never executed due to interrupt it will be wiped on shutdown.
+    cmds += ['buildah unshare rm -rf $STORE']
     image_rule = genrule(
         name=name,
         srcs=srcs_dict,
