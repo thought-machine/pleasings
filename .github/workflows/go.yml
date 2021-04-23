@@ -1,0 +1,12 @@
+name: Go
+on: [push]
+jobs:
+  go:
+    name: Test Go Rules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Test Go Rules
+        run: ./pleasew test //go/...
