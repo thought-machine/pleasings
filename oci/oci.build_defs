@@ -131,7 +131,11 @@ def container_image(
     cmds += [f'$TOOL push "{img_id}" "oci:$OUT"']
     if srcs_dict.get('base'):
         # Remove base image layers, leaving a small incremental artifact for fast http caching.
-        cmds += ['cd "$SRCS_BASE/blobs/sha256"', 'find . -exec rm -rf $OUT/blobs/sha256/{} \;']
+        cmds += [
+            'base_manifests=$(jq -r \'.manifests[].digest\' $SRCS_BASE/index.json | sed -e "s/^sha256://")',
+            'base_layers=$((for m in $base_manifests; do jq -r \'.layers[].digest\' $SRCS_BASE/blobs/sha256/$m; done) | sed -e "s/^sha256://")',
+            'eval rm -f $OUT/blobs/sha256/{$(echo $base_layers | tr \' \' ,)}',
+        ]
     # Best effort cleanup. If this is never executed due to interrupt it will be wiped on shutdown.
     cmds += ['buildah unshare rm -rf $STORE']
     image_rule = genrule(
