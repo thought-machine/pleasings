@@ -1,5 +1,5 @@
 [please]
-version = >=15.15.0
+version = >=16.0.0
 
 [build]
 path = /usr/local/bin:/usr/bin:/bin
