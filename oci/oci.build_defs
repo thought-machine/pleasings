@@ -1,7 +1,7 @@
 def container_image(
     name:str, base_image='', transitive_base_images=[], srcs=[],image='', version='', dockerfile='',
     containerfile='', entrypoint=[], cmd=[], repo=CONFIG.get('DEFAULT_DOCKER_REPO', ''),
-    labels=[], test_only=False, visibility:list=None
+    labels=[], run_args:str='', test_only=False, visibility:list=None
 ):
     """Build an OCI-compliant image. Uses incremental layering to optimise for please. The OCI
     Specification standardises the docker image format https://github.com/opencontainers/image-spec.
@@ -30,6 +30,7 @@ def container_image(
            single-source images, defaults to a command running that source.
       repo: Optional repository to hold this image. Can also provide env var when calling '_push'.
       labels: Labels to tag this rule with.
+      run_args: Any additional arguments to provide to 'podman run'.
       test_only: If True, this can only be depended on by test rules.
       visibility: Visibility of this rule.
     """
@@ -195,9 +196,9 @@ def container_image(
     cmd = f'''
     if [ ! $(command -v {CONFIG.PODMAN_TOOL} &> /dev/null) ]; then
         {CONFIG.SKOPEO_TOOL} copy -q {img_loc} "docker-daemon:`cat $SRC`"
-        docker run -it `cat $SRC` \\\$@
+        docker run -it {run_args} `cat $SRC` \\\$@
     else
-        {CONFIG.PODMAN_TOOL} run -it {img_loc} \\\$@
+        {CONFIG.PODMAN_TOOL} run -it {run_args} {img_loc} \\\$@
     fi'''
     sh_cmd(
         name=name + '_run',
