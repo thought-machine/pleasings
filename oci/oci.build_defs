@@ -77,7 +77,7 @@ def container_image(
         """
         context = ''
         if srcs:
-            context = "$TMPDIR/context"
+            context = "$STORE/context"
             srcs_dict['context'] = srcs
             cmds += [f'mkdir "{context}"', f'mv "$SRCS_CONTEXT" "{context}"']
         return context, cmds
