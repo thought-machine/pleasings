@@ -223,7 +223,7 @@ def container_image(
     ]
     sh_cmd(
         name=name + '_push',
-        cmd=cmds + [cmd],
+        cmd=cmds,
         srcs=[tag_rule],
         data=data,
         visibility=visibility,
