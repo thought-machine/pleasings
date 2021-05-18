@@ -193,7 +193,7 @@ def container_image(
 
     # run_rule, runs the image using podman or docker if podman not found.
     cmd = f'''
-    if ! $(command -v {CONFIG.PODMAN_TOOL} &> /dev/null); then
+    if ! command -v {CONFIG.PODMAN_TOOL} &> /dev/null; then
         {CONFIG.SKOPEO_TOOL} copy -q {img_loc} "docker-daemon:`cat $SRC`"
         docker run -it `cat $SRC` \\\$@
     else
