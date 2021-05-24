@@ -9,6 +9,7 @@ path = ~/.yarn/bin
 
 [go]
 importpath = github.com/thought-machine/pleasings
+PleaseGoTool = ~/please/plz-out/bin/tools/please_go/please_go
 
 [buildconfig]
 grm-test-main = //grm:test_main
