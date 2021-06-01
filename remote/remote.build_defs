@@ -50,7 +50,7 @@ def signed_remote_file(name, url, hashes, sig_hashes, sig_url=None, key=None, ke
     )
 
     if key.startswith('http://') or key.startswith('https://'):
-        assert(key_hashes not None) # Ensure that we have a hash if we're downloading the key
+        assert(key_hashes != None) # Ensure that we have a hash if we're downloading the key
         key = remote_file(
             name = f'_{name}#key',
             url = key,
