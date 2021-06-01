@@ -1,3 +1,85 @@
+def signed_remote_file(name, url, hashes, sig_hashes, sig_url=None, key=None, key_hashes=None, out=None, binary=False,
+                       visibility=None, licences=None, labels:list=[],test_only=False, deps=None):
+     """Extension of signed remote_file rule to perform signature verification with GPG,
+     hashes are compulsory to avoid upstream tampering.
+
+    Args:
+      name (str): Name of the rule
+      url (str): URL to fetch
+      hashes (list): List of hashes; the output must match at least one of these.
+                     Note that this applies to the file itself, not the signature.
+      sig_hashes (list): List of hashes for the signature files; the output must
+                     match at least one of these.
+                     Note that this applies to the signature itself, not the file.
+      sig_url (str): URL of signature file. Defaults to url + .asc.
+      key (str): Key to verify signature with. Can either be a URL, in which case it is
+                 automatically downloaded, or a rule or source file which is used directly.
+                 Currently only ASCII-armored format is supported.
+      key_hashes (list): List of hashes; the output must match at least one of these if the key is remote.
+      sig_hashes (list): List of hashes for the signature files; the output must
+                     match at least one of these.
+                     Note that this applies to the signature itself, not the file.
+      out (str): Output name of the file. Chosen automatically if not given.
+      binary (bool): True to mark the output as binary and runnable.
+      visibility (list): Visibility declaration of the rule.
+      licences (list): List of licences that apply to this rule.
+      test_only (bool): If true the rule is only visible to test targets.
+      deps (list): List of extra dependencies for this rule.
+    """
+    file_rule = remote_file(
+        name = f'_{name}#file',
+        url = url,
+        hashes = hashes,
+        labels = labels + ["has-hash"],
+        out = out,
+        binary = binary,
+        licences = licences,
+        test_only = test_only,
+        deps = deps,
+    )
+
+    sig_url = sig_url or url + '.asc'
+    sig_rule = remote_file(
+        name = f'_{name}#sig',
+        url = sig_url,
+        test_only = test_only,
+        deps = deps,
+        hashes = sig_hashes,
+        labels = labels + ["has-hash"],
+
+    )
+
+    if key.startswith('http://') or key.startswith('https://'):
+        assert(key_hashes not None) # Ensure that we have a hash if we're downloading the key
+        key = remote_file(
+            name = f'_{name}#key',
+            url = key,
+            test_only = test_only,
+            deps = deps,
+            hashes = sig_hashes,
+            labels = labels + ["has-hash"],
+        )
+
+    verify_rule = build_rule(
+        name = name,
+        tag = 'verify',
+        srcs = {
+            'file': [file_rule],
+            'sig': [sig_rule],
+            'key': [key],
+        },
+        cmd = 'gpg --dearmor $SRCS_KEY && gpg --no-default-keyring --keyring ${SRCS_KEY}.gpg --verify $SRCS_SIG $SRCS_FILE',
+        test_only = test_only,
+    )
+
+    return filegroup(
+        name = name,
+        srcs = [file_rule],
+        deps = [verify_rule],
+        test_only = test_only,
+        visibility = visibility,
+    )
+
 def signed_remote_file(name, url, sig_url=None, key=None, hashes=None, out=None, binary=False,
                        visibility=None, licences=None, test_only=False, deps=None):
     """Extension of builtin remote_file rule to perform signature verification with GPG.
