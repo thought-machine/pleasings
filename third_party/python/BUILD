@@ -3,14 +3,12 @@ package(default_visibility = ["PUBLIC"])
 pip_library(
     name = "protobuf",
     version = "3.2.0",
-    outs = ["google"],
     deps = [":six"],
 )
 
 pip_library(
     name = "six",
     version = "1.10.0",
-    outs = ["six.py"],
 )
 
 pip_library(
@@ -28,7 +26,6 @@ pip_library(
 pip_library(
     name = "futures",
     version = "3.0.5",
-    outs = ["concurrent"],
 )
 
 pip_library(
