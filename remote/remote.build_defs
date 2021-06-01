@@ -1,7 +1,7 @@
 def signed_remote_file(name, url, hashes, sig_hashes, sig_url=None, key=None, key_hashes=None, out=None, binary=False,
-                       visibility=None, licences=None, labels:list=[],test_only=False, deps=None):
-     """Extension of signed remote_file rule to perform signature verification with GPG,
-     hashes are compulsory to avoid upstream tampering.
+                        visibility=None, licences=None, labels:list=[],test_only=False, deps=None):
+    """Extension of signed remote_file rule to perform signature verification with GPG,
+    hashes are compulsory to avoid upstream tampering.
 
     Args:
       name (str): Name of the rule
