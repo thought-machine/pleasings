@@ -1,7 +1,7 @@
 def go_mock(name:str, src_lib:str, visibility:list=None, deps:list=[], package:str=package_name(), interfaces:list):
     """Generates a Go library made up of mocks for the given source library.
 
-    This rule expects "//third_party/go:mock" and "//third_party/go:mockgen" to be defrined.
+    This rule expects "//third_party/go:mock" and "//third_party/go:mockgen" to be defined.
     These are configurable through
 
     [BuildConfig]
