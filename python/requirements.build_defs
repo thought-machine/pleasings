@@ -43,7 +43,6 @@ def auto_pip_library(name:str, package:str='', zip_safe:bool=True,
       visibility (list): Visibility declaration for this rule.
       zip_safe (bool): Flag to indicate whether a pex including this rule will be zip-safe.
     """
-    warning(f"{CONFIG.PIP_TOOL} {CONFIG.JARCAT_TOOL}")
     package = package or name
     index_flag = '' if CONFIG.USE_PYPI else '--no-index'
     repo_flag = '-f {CONFIG.DEFAULT_PYTHON_PIP_REPO}'
