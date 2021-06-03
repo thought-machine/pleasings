@@ -81,7 +81,7 @@ def container_image(
         if srcs:
             context = "$STORE/context"
             srcs_dict['context'] = srcs
-            cmds += [f'mkdir "{context}"', f'mv "$SRCS_CONTEXT" "{context}"']
+            cmds += [f'mkdir "{context}"', f'mv $SRCS_CONTEXT "{context}"']
         return context, cmds
 
     def build_using_dockerfile(srcs_dict:dict, cmds:list, base_image:str, context:str):
