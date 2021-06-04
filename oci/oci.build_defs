@@ -47,8 +47,8 @@ def container_image(
     
     # OCI_TMPDIR: If your code and /tmp are in different file systems, the hard-link used by
     # this rule will not work. In that case, you can use the OCI_TMPDIR buildconfig
-    oci_tmpdir=CONFIG.get('OCI_TMPDIR', '/tmp')
-
+    oci_tmpdir = CONFIG.OCI_TMPDIR
+    
     def assert_transitive_base_images_present():
         """
         Currently no way to automatically add transitive 'data' dependencies,
@@ -258,3 +258,4 @@ def _format_exec_list(cmds: list) -> str:
 CONFIG.setdefault('BUILDAH_TOOL', 'buildah')
 CONFIG.setdefault('SKOPEO_TOOL', 'skopeo')
 CONFIG.setdefault('PODMAN_TOOL', 'podman')
+CONFIG.setdefault('OCI_TMPDIR', '/tmp')
