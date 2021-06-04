@@ -44,7 +44,11 @@ def container_image(
         dockerfile = containerfile
     transitive_base_images = [canonicalise(rule) for rule in transitive_base_images]
     base_image_target = base_image
-
+    
+    # OCI_TMPDIR: If your code and /tmp are in different file systems, the hard-link used by
+    # this rule will not work. In that case, you can use the OCI_TMPDIR buildconfig
+    oci_tmpdir = CONFIG.OCI_TMPDIR
+    
     def assert_transitive_base_images_present():
         """
         Currently no way to automatically add transitive 'data' dependencies,
@@ -81,7 +85,7 @@ def container_image(
         if srcs:
             context = "$STORE/context"
             srcs_dict['context'] = srcs
-            cmds += [f'mkdir "{context}"', f'mv "$SRCS_CONTEXT" "{context}"']
+            cmds += [f'mkdir "{context}"', f'mv $SRCS_CONTEXT "{context}"']
         return context, cmds
 
     def build_using_dockerfile(srcs_dict:dict, cmds:list, base_image:str, context:str):
@@ -120,7 +124,7 @@ def container_image(
         # Buildah uses an image store, which can be ephemeral, except that please fails to delete it
         # due to permissions. This uses a cache in /tmp, outside the build rule dir, where it
         # doesnt have to be deleted by please. It is deleted on successful build or system restart.
-        'STORE=$(TMPDIR=/tmp mktemp -d)',
+        f'STORE=$(TMPDIR="{oci_tmpdir}" mktemp -d)',
         'TOOL="$TOOL --root=$STORE/containers --runroot=$STORE/run"',
     ]
     base_image, cmds, labels, pre_build = format_base_image(srcs_dict, cmds, labels)
@@ -186,7 +190,7 @@ def container_image(
     if srcs_dict.get('base'):
         base_images = transitive_base_images + srcs_dict['base']
         data += base_images
-        cmds += ['tmp_dir=\\\$(mktemp -d)', f'cp -rl $(out_location {image_rule})/* \\\$tmp_dir']
+        cmds += [f'tmp_dir=\\\$(TMPDIR="{oci_tmpdir}" mktemp -d)', f'cp -rl $(out_location {image_rule})/* \\\$tmp_dir']
         for base in base_images:
             cmds += [f'cp -l $(out_location {base})/blobs/sha256/* "\\\$tmp_dir/blobs/sha256"']
         img_loc = f'oci:\\\$tmp_dir'
@@ -254,3 +258,4 @@ def _format_exec_list(cmds: list) -> str:
 CONFIG.setdefault('BUILDAH_TOOL', 'buildah')
 CONFIG.setdefault('SKOPEO_TOOL', 'skopeo')
 CONFIG.setdefault('PODMAN_TOOL', 'podman')
+CONFIG.setdefault('OCI_TMPDIR', '/tmp')
