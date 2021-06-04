@@ -1,3 +1,5 @@
+package(GO_IMPORT_PATH = "github.com/thought-machine/pleasings")
+
 go_library(
     name = "maven",
     srcs = [
