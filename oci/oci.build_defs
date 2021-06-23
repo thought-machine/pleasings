@@ -1,7 +1,8 @@
 def container_image(
     name:str, base_image='', transitive_base_images=[], srcs=[],image='', version='', dockerfile='',
     containerfile='', entrypoint=[], cmd=[], repo=CONFIG.get('DEFAULT_DOCKER_REPO', ''),
-    labels=[], run_args:str='', push_args:str='', test_only=False, visibility:list=None
+    labels=[], run_args:str='', push_args:str='', test_only=False, visibility:list=None,
+    timestamp=0
 ):
     """Build an OCI-compliant image. Uses incremental layering to optimise for please. The OCI
     Specification standardises the docker image format https://github.com/opencontainers/image-spec.
@@ -34,6 +35,7 @@ def container_image(
       push_args: Any additional arguments to provide to 'skopeo copy'.
       test_only: If True, this can only be depended on by test rules.
       visibility: Visibility of this rule.
+      timestamp: set the created timestamp to the specified epoch seconds
     """
     img_id = f"$PKG/{name}"
     image = image or img_id
@@ -44,11 +46,11 @@ def container_image(
         dockerfile = containerfile
     transitive_base_images = [canonicalise(rule) for rule in transitive_base_images]
     base_image_target = base_image
-    
+
     # OCI_TMPDIR: If your code and /tmp are in different file systems, the hard-link used by
     # this rule will not work. In that case, you can use the OCI_TMPDIR buildconfig
     oci_tmpdir = CONFIG.OCI_TMPDIR
-    
+
     def assert_transitive_base_images_present():
         """
         Currently no way to automatically add transitive 'data' dependencies,
@@ -88,17 +90,17 @@ def container_image(
             cmds += [f'mkdir "{context}"', f'mv $SRCS_CONTEXT "{context}"']
         return context, cmds
 
-    def build_using_dockerfile(srcs_dict:dict, cmds:list, base_image:str, context:str):
+    def build_using_dockerfile(srcs_dict:dict, cmds:list, base_image:str, context:str, timestamp:int):
         """
         Essentially a 'docker build', but using buildah
         """
         srcs_dict['dockerfile'] = [f'{dockerfile}']
         if base_image:
             base_image = f'--from "{base_image}"'
-        cmds += [f'$TOOL bud --timestamp 0 {base_image} -f "$SRCS_DOCKERFILE" -t "{img_id}" "{context}"']
+        cmds += [f'$TOOL bud --timestamp {timestamp} {base_image} -f "$SRCS_DOCKERFILE" -t "{img_id}" "{context}"']
         return img_id, cmds
 
-    def build(srcs_dict:dict, cmds:list, base_image:str, context:str, entrypoint:list, cmd:list):
+    def build(srcs_dict:dict, cmds:list, base_image:str, context:str, entrypoint:list, cmd:list, timestamp:int):
         """
         Without a dockerfile, use the buildah cli to add layers
         """
@@ -115,7 +117,7 @@ def container_image(
             cmd = _format_exec_list(cmd)
             cmds += [f'$TOOL config --cmd "{cmd}" "$ctr"']
         # commit the image and remove the working container
-        cmds += [f'$TOOL commit --omit-timestamp "$ctr" "{img_id}"']
+        cmds += [f'$TOOL commit --timestamp {timestamp} "$ctr" "{img_id}"']
         return img_id, cmds
 
     # image rule, builds the image and stores it as an oci-formatted dir.
@@ -130,9 +132,9 @@ def container_image(
     base_image, cmds, labels, pre_build = format_base_image(srcs_dict, cmds, labels)
     context, cmds = context(srcs_dict, cmds)
     if dockerfile:
-        img_id, cmds = build_using_dockerfile(srcs_dict, cmds, base_image, context)
+        img_id, cmds = build_using_dockerfile(srcs_dict, cmds, base_image, context, timestamp)
     else:
-        img_id, cmds = build(srcs_dict, cmds, base_image, context, entrypoint, cmd)
+        img_id, cmds = build(srcs_dict, cmds, base_image, context, entrypoint, cmd, timestamp)
     # Write the compressed layers to OUT then remove the image from buildah's store.
     cmds += [f'$TOOL push "{img_id}" "oci:$OUT"']
     if srcs_dict.get('base'):
