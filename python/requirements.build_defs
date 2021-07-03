@@ -47,8 +47,11 @@ def auto_pip_library(name:str, package:str='', zip_safe:bool=True,
     index_flag = '' if CONFIG.USE_PYPI else '--no-index'
     repo_flag = '-f {CONFIG.DEFAULT_PYTHON_PIP_REPO}'
 
-    cmd = f'$TOOLS_PIP download --no-deps --no-cache-dir {repo_flag} {index_flag} {package} && mv *.whl $OUT'
+    pip_tool = "$TOOLS_PIP" if CONFIG.PIP_TOOL else '$TOOLS_PYTHON -m pip'
+    cmd = f'{pip_tool} download --no-deps --no-cache-dir {repo_flag} {index_flag} {package} && mv *.whl $OUT'
 
+    tools = {'pip': [CONFIG.PIP_TOOL]} if CONFIG.PIP_TOOL else {'python': [CONFIG.DEFAULT_PYTHON_INTERPRETER]}
+    tools["jarcat"] = [CONFIG.JARCAT_TOOL]
     wheel_rule = build_rule(
         name = name,
         tag = 'wheel',
@@ -58,10 +61,7 @@ def auto_pip_library(name:str, package:str='', zip_safe:bool=True,
         building_description = 'Fetching...',
         requires = ['py'],
         test_only = test_only,
-        tools = {
-            'pip': [CONFIG.PIP_TOOL],
-            'jarcat': [CONFIG.JARCAT_TOOL],
-        },
+        tools = tools,
         sandbox = False,
         labels = ['py:zip-unsafe'] if not zip_safe else None,
     )

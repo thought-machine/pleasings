@@ -1,5 +1,5 @@
 [please]
-version = >=15.15.0
+version = >=16.1.0
 
 [build]
 path = /usr/local/bin:/usr/bin:/bin
@@ -9,6 +9,7 @@ path = ~/.yarn/bin
 
 [go]
 importpath = github.com/thought-machine/pleasings
+PleaseGoTool = ~/please/plz-out/bin/tools/please_go/please_go
 
 [buildconfig]
 grm-test-main = //grm:test_main
