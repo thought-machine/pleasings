@@ -41,35 +41,18 @@ def container_image(
     if containerfile:
         dockerfile = containerfile
     transitive_base_images = [canonicalise(rule) for rule in transitive_base_images]
-    base_image_target = base_image
-
-    def assert_transitive_base_images_present():
-        """
-        Currently no way to automatically add transitive 'data' dependencies,
-        so this checks the user has provided them explicitly.
-        """
-        bases = get_labels(base_image_target, 'base:')
-        for base in bases:
-            assert base in transitive_base_images, f"{base} missing from transitive_base_images arg"
+    base_image_target = canonicalise(base_image) if base_image.startswith("//") or base_image.startswith(":") else None
 
     def format_base_image(srcs_dict:dict, cmds:list, labels:list):
         """
         Format the base image for use by buildah.
         """
-        pre_build = None
         # if the base is target, add its layers and those of its parents as dependencies
         if base_image.startswith("//") or base_image.startswith(":"):
-            pre_build = lambda rule: assert_transitive_base_images_present()
             base_image = canonicalise(base_image)
             labels += [f'base:{base_image}']
-            srcs_dict['base'] = [base_image]
-            base_image = 'oci:"$SRCS_BASE"'
-            if transitive_base_images:
-                srcs_dict['transitive_base'] = transitive_base_images
-                for base in transitive_base_images:
-                    # link the missing layers from the base's parents into the base layer store
-                    cmds += [f'cp -l $(location {base})/blobs/sha256/* "$SRCS_BASE/blobs/sha256"']
-        return base_image, cmds, labels, pre_build
+            base_image = f'oci:"$(location {base_image})"'
+        return base_image, cmds, labels
 
     def context(srcs_dict:dict, cmds:list):
         """
@@ -121,23 +104,53 @@ def container_image(
         'STORE=$(TMPDIR=/tmp mktemp -d)',
         'TOOL="$TOOL --root=$STORE/containers --runroot=$STORE/run"',
     ]
-    base_image, cmds, labels, pre_build = format_base_image(srcs_dict, cmds, labels)
+    base_image, cmds, labels = format_base_image(srcs_dict, cmds, labels)
     context, cmds = context(srcs_dict, cmds)
     if dockerfile:
         img_id, cmds = build_using_dockerfile(srcs_dict, cmds, base_image, context)
     else:
         img_id, cmds = build(srcs_dict, cmds, base_image, context, entrypoint, cmd)
     # Write the compressed layers to OUT then remove the image from buildah's store.
-    cmds += [f'$TOOL push "{img_id}" "oci:$OUT"']
-    if srcs_dict.get('base'):
+    cmds += [
+        f'$TOOL push "{img_id}" "oci:$OUT"',
+        f'base_layers=',
+    ]
+    pre_build = None
+    if base_image:
         # Remove base image layers, leaving a small incremental artifact for fast http caching.
         cmds += [
-            'base_manifests=$(jq -r \'.manifests[].digest\' $SRCS_BASE/index.json | sed -e "s/^sha256://")',
-            'base_layers=$((for m in $base_manifests; do jq -r \'.layers[].digest\' $SRCS_BASE/blobs/sha256/$m; done) | sed -e "s/^sha256://")',
+            f'base_manifests=$(jq -r \'.manifests[].digest\' $(location {base_image_target})/index.json | sed -e "s/^sha256://")',
+            f'base_layers=$((for m in $base_manifests; do jq -r \'.layers[].digest\' $(location {base_image_target})/blobs/sha256/$m; done) | sed -e "s/^sha256://")',
             'eval rm -f $OUT/blobs/sha256/{$(echo $base_layers | tr \' \' ,)}',
         ]
-    # Best effort cleanup. If this is never executed due to interrupt it will be wiped on shutdown.
-    cmds += ['buildah unshare rm -rf $STORE']
+        def copy_base_layers(rule):
+            cmd = get_command(rule)
+            cp_layers_cmd = ''
+            for l in get_labels(base_image_target, "oci-layers:"):
+                t, _, h = l.rpartition("/sha256/")
+                if t != base_image_target:
+                    cp_layers_cmd += f' && ' if cp_layers_cmd else ''
+                    h = h.removeprefix("sha256/")
+                    base_layer = f"$(location {t})/blobs/sha256/{h}"
+                    cp_layers_cmd += f'cp -l {base_layer} "$(location {base_image_target})/blobs/sha256"'
+            cmd = f'{cp_layers_cmd} && {cmd}' if cp_layers_cmd else cmd
+            set_command(rule, cmd)
+        pre_build = copy_base_layers
+    cmds += [
+        # Best effort cleanup. If this is never executed due to interrupt it will be wiped on shutdown.
+        '$TOOL unshare rm -rf $STORE',
+        # Printing actual image layers for labels
+        'image_manifests=$(jq -r \'.manifests[].digest\' $OUT/index.json | sed -e "s/^sha256://")',
+        'image_layers=$((for m in $image_manifests; do jq -r \'.layers[].digest\' $OUT/blobs/sha256/$m; done) | sed -e "s/^sha256://")',
+        'echo $base_layers $image_layers | tr \' \' \'\\n\' | sort | uniq -u | tr \' \' \'\\n\'',
+    ]
+    def add_layer_labels(rule, out):
+        layers = out[-1].split(' ')
+        rule = canonicalise(f":{rule}")
+        for l in layers:
+            label = f'oci-layers:{rule}/sha256/{l}'
+            log.debug(f'adding label \'{label}\' to rule {rule}')
+            add_label(rule, label)
     image_rule = genrule(
         name=name,
         srcs=srcs_dict,
@@ -145,9 +158,12 @@ def container_image(
         outs=[name],
         labels=labels + ["container-image"],
         pre_build=pre_build,
+        post_build=add_layer_labels,
         visibility=visibility,
         test_only=test_only,
         tools=[CONFIG.BUILDAH_TOOL],
+        deps=[base_image_target],
+        needs_transitive_deps=True,
     )
 
     # tag_rule, either a unique hash or the supplied version.
