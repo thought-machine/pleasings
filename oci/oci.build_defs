@@ -40,7 +40,6 @@ def container_image(
         repo += '/'
     if containerfile:
         dockerfile = containerfile
-    transitive_base_images = [canonicalise(rule) for rule in transitive_base_images]
     base_image_target = canonicalise(base_image) if base_image.startswith("//") or base_image.startswith(":") else None
 
     def format_base_image(srcs_dict:dict, cmds:list, labels:list):
@@ -125,8 +124,9 @@ def container_image(
         ]
         def copy_base_layers(rule):
             cmd = get_command(rule)
-            cp_layers_cmd = f''
+            cp_layers_cmd = f'ls -R $TMP_DIR'
             for l in get_labels(base_image_target, "oci-layers:"):
+                log.debug(f'found label {l}')
                 cp_layers_cmd += f' && ' if cp_layers_cmd else ''
                 cp_layers_cmd += f'echo {l}'
                 # if t != base_image_target:
@@ -144,7 +144,7 @@ def container_image(
         'image_manifests=$(jq -r \'.manifests[].digest\' $OUT/index.json | sed -e "s/^sha256://")',
         'image_layers=$((for m in $image_manifests; do jq -r \'.layers[].digest\' $OUT/blobs/sha256/$m; done) | sed -e "s/^sha256://")',
         'echo Image layers:',
-        'echo $base_layers $image_layers | tr \' \' \'\\n\' | sort | uniq -u | tr \' \' \'\\n\'',
+        'echo $base_layers $image_layers | tr \' \' \'\\n\' | sort | uniq -u | tr \'\\n\' \' \'',
     ]
     def add_layer_labels(rule, out):
         layers = out[-1].split(' ')
