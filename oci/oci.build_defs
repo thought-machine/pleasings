@@ -125,14 +125,15 @@ def container_image(
         ]
         def copy_base_layers(rule):
             cmd = get_command(rule)
-            cp_layers_cmd = ''
+            cp_layers_cmd = f''
             for l in get_labels(base_image_target, "oci-layers:"):
-                t, _, h = l.rpartition("/sha256/")
-                if t != base_image_target:
-                    cp_layers_cmd += f' && ' if cp_layers_cmd else ''
-                    h = h.removeprefix("sha256/")
-                    base_layer = f"$(location {t})/blobs/sha256/{h}"
-                    cp_layers_cmd += f'cp -l {base_layer} "$(location {base_image_target})/blobs/sha256"'
+                cp_layers_cmd += f' && ' if cp_layers_cmd else ''
+                cp_layers_cmd += f'echo {l}'
+                # if t != base_image_target:
+                #     cp_layers_cmd += f' && ' if cp_layers_cmd else ''
+                #     h = h.removeprefix("sha256/")
+                #     base_layer = f"$(out_location {t})/blobs/sha256/{h}"
+                #     cp_layers_cmd += f'cp -l {base_layer} "$(location {base_image_target})/blobs/sha256"'
             cmd = f'{cp_layers_cmd} && {cmd}' if cp_layers_cmd else cmd
             set_command(rule, cmd)
         pre_build = copy_base_layers
@@ -142,13 +143,14 @@ def container_image(
         # Printing actual image layers for labels
         'image_manifests=$(jq -r \'.manifests[].digest\' $OUT/index.json | sed -e "s/^sha256://")',
         'image_layers=$((for m in $image_manifests; do jq -r \'.layers[].digest\' $OUT/blobs/sha256/$m; done) | sed -e "s/^sha256://")',
+        'echo Image layers:',
         'echo $base_layers $image_layers | tr \' \' \'\\n\' | sort | uniq -u | tr \' \' \'\\n\'',
     ]
     def add_layer_labels(rule, out):
         layers = out[-1].split(' ')
-        rule = canonicalise(f":{rule}")
+        base_path = get_base_path() + f"/{rule}/blobs/sha256"
         for l in layers:
-            label = f'oci-layers:{rule}/sha256/{l}'
+            label = f'oci-layers:{base_path}/{l}'
             log.debug(f'adding label \'{label}\' to rule {rule}')
             add_label(rule, label)
     image_rule = genrule(
