@@ -130,16 +130,11 @@ def container_image(
         ]
         def copy_base_layers(rule):
             cmd = get_command(rule)
-            cp_layers_cmd = f'ls -R'
+            cp_layers_cmd = f''
             for l in get_labels(base_image_target, "oci-layers:"):
-                log.debug(f'found label {l}')
+	    	log.debug(f'copying base layer {l} to base image')
                 cp_layers_cmd += f' && ' if cp_layers_cmd else ''
-                cp_layers_cmd += f'echo {l}'
-                # if t != base_image_target:
-                #     cp_layers_cmd += f' && ' if cp_layers_cmd else ''
-                #     h = h.removeprefix("sha256/")
-                #     base_layer = f"$(out_location {t})/blobs/sha256/{h}"
-                #     cp_layers_cmd += f'cp -l {base_layer} "$(location {base_image_target})/blobs/sha256"'
+                cp_layers_cmd += f'cp -l {l} "$(location {base_image_target})/blobs/sha256"'
             cmd = f'{cp_layers_cmd} && {cmd}' if cp_layers_cmd else cmd
             set_command(rule, cmd)
         pre_build = copy_base_layers
@@ -170,7 +165,7 @@ def container_image(
         visibility=visibility,
         test_only=test_only,
         tools=[CONFIG.BUILDAH_TOOL],
-        deps=[base_image_target],
+        exported_deps=[base_image_target],
         needs_transitive_deps=True,
     )
 
