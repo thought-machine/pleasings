@@ -129,16 +129,7 @@ def container_image(
             f'base_layers=$((for m in $base_manifests; do jq -r \'.layers[].digest\' $(location {base_image_target})/blobs/sha256/$m; done) | sed -e "s/^sha256://")',
             'eval rm -f $OUT/blobs/sha256/{$(echo $base_layers | tr \' \' ,)}',
         ]
-        def copy_base_layers(rule):
-            cmd = get_command(rule)
-            cp_layers_cmds = []
-            for l in get_labels(base_image_target, "oci-layers:"):
-                log.debug(f'copying base layer {l} to base image')
-                cp_layers_cmds += [f'cp -l {l} "$(location {base_image_target})/blobs/sha256"']
-            cp_layers_cmds += [cmd]
-            cmd = ' && '.join(cp_layers_cmds)
-            set_command(rule, cmd)
-        pre_build = copy_base_layers
+        pre_build = _copy_base_layers_pre_build(base_image_target)
     cmds += [
         # Best effort cleanup. If this is never executed due to interrupt it will be wiped on shutdown.
         '$TOOL unshare rm -rf $STORE',
@@ -149,49 +140,29 @@ def container_image(
         'echo $base_layers $image_layers | tr \' \' \'\\n\' | sort | uniq -u | tr \'\\n\' \' \'',
     ]
 
-    def add_layer_labels(rule, layers):
+    def add_layer_labels(rule, out):
+        layers = out[-1].split(' ')
         base_path = get_base_path() + f"/{rule}/blobs/sha256"
         for l in layers:
             label = f'oci-layers:{base_path}/{l}'
             log.debug(f'adding label \'{label}\' to rule {rule}')
             add_label(rule, label)
 
-    def add_base_layers_to_run_rules(rule, layers):
-        load_layers_cmds = [f'tmp_dir=\\\$(TMPDIR="{oci_tmpdir}" mktemp -d)', f'cp -rl $(out_location {rule})/* \\\$tmp_dir']
-        for l in get_labels(rule, 'oci-deps:'):
-            load_layers_cmds += [f'cp -l $(out_location {l})/blobs/sha256/* "\\\$tmp_dir/blobs/sha256"']
-            for r in run_rules:
-                add_dep(r, l)
-        for r in run_rules:
-            cmd = get_command(r)
-            cmds = load_layers_cmds + [cmd]
-            set_command(r, ' && '.join(cmds))
-        sh_cmd(
-            name = name+"_a",
-            cmd = "echo test",
-        )
-
-    def post_build(rule, out):
-        layers = out[-1].split(' ')
-        add_layer_labels(rule, layers)
-        add_base_layers_to_run_rules(rule, layers)
-
-    img_labels = labels + ["container-image"]
-    img_labels = img_labels + [f"oci-deps:{base_image_target}"] if base_image_target else img_labels
     image_rule = genrule(
         name=name,
         srcs=srcs_dict,
         cmd=cmds,
         outs=[name],
-        labels=img_labels,
+        labels=labels + ["container-image"],
         pre_build=pre_build,
-        post_build=post_build,
+        post_build=add_layer_labels,
         visibility=visibility,
         test_only=test_only,
         tools=[CONFIG.BUILDAH_TOOL],
         exported_deps=[base_image_target],
         needs_transitive_deps=True,
     )
+
 
     # tag_rule, either a unique hash or the supplied version.
     if version:
@@ -225,21 +196,35 @@ def container_image(
         test_only=test_only,
     )
 
-    deps = [image_rule]
+    # target that gathers the full image (with all its layers)
+    full_img = genrule(
+        name=f'_{name}_full',
+        srcs=[image_rule],
+        cmd='cp -r $SRCS $OUT',
+        outs=[name+'_full'],
+        labels=labels + ["container-image"],
+        pre_build=_copy_base_layers_pre_build(image_rule),
+        visibility=visibility,
+        test_only=test_only,
+        exported_deps=[base_image_target],
+        needs_transitive_deps=True,
+        local=True,
+    )
+
 
     # run_rule, runs the image using podman or docker if podman not found.
     cmd = f'''
     if ! command -v {CONFIG.PODMAN_TOOL} &> /dev/null; then
-        {CONFIG.SKOPEO_TOOL} copy -q oci:\\\$tmp_dir "docker-daemon:`cat $SRC`"
+        {CONFIG.SKOPEO_TOOL} copy -q oci:$(out_location {full_img}) "docker-daemon:`cat $SRC`"
         docker run -it {run_args} `cat $SRC` \\\$@
     else
-        {CONFIG.PODMAN_TOOL} run -it {run_args} oci:\\\$tmp_dir \\\$@
+        {CONFIG.PODMAN_TOOL} run -it {run_args} oci:$(out_location {full_img}) \\\$@
     fi'''
     run_rule = sh_cmd(
         name=name + '_run',
         cmd=cmd,
         srcs=[fqn],
-        deps=deps,
+        data=[full_img],
         visibility=visibility,
         test_only=test_only,
         labels=labels + ["image-run"],
@@ -251,16 +236,16 @@ def container_image(
     # REPO: Image registry e.g. 'docker.io/library', default is from the build rule argument.
     # TAG: Tag to export the image with, default is version on the build target, or a unique hash.
     cmds = [
-        f'from="oci:$(out_location {image_rule})"',
+        f'from="oci:$(out_location {full_img})"',
         f'to="\\\${{DEST:-docker://}}\\\${{REPO:-{repo}}}\\\${{REPO:+/}}{image}:\\\${{TAG:-`cat $SRC`}}"',
-        f'{CONFIG.SKOPEO_TOOL} copy -q \\\${{PUSH_ARGS:-{push_args}}} oci:\\\$tmp_dir "\\\$to"',
+        f'{CONFIG.SKOPEO_TOOL} copy -q \\\${{PUSH_ARGS:-{push_args}}} "\\\$from" "\\\$to"',
         'echo "\\\$from copied to \\\$to"',
     ]
     push_rule = sh_cmd(
         name=name + '_push',
         cmd=cmds,
         srcs=[tag_rule],
-        deps=deps,
+        data=[full_img],
         visibility=visibility,
         test_only=test_only,
         labels=labels + ["image-push"],
@@ -271,7 +256,7 @@ def container_image(
         name=name + '_load',
         cmd=['export DEST="docker-daemon:"'] + cmds,
         srcs=[tag_rule],
-        deps=deps,
+        data=[full_img],
         visibility=visibility,
         test_only=test_only,
         labels=labels + ["image-load"],
@@ -284,6 +269,23 @@ def _format_exec_list(cmds: list) -> str:
     """get commands in the docker exec format e.g. ["cmd1", "cmd2"] """
     cmds = '\\",\\"'.join(cmds)
     return f'[\\"{cmds}\\"]'
+
+# this function is supposed to be used as a pre_build function
+# retrieves all oci-layers labels from `base_image_target` and changes the
+# command of the rule that's getting built to copy all these layers into
+# the `base_image_target` location
+def _copy_base_layers_pre_build(base_image_target):
+    def copy_base_layers(rule):
+        cmd = get_command(rule)
+        cp_layers_cmds = []
+        for l in get_labels(base_image_target, "oci-layers:", True):
+            log.debug(f'copying base layer {l} to base image')
+            cp_layers_cmds += [f'cp -l {l} "$(location {base_image_target})/blobs/sha256"']
+        cp_layers_cmds += [cmd]
+        cmd = ' && '.join(cp_layers_cmds)
+        set_command(rule, cmd)
+    return copy_base_layers
+ 
 
 
 CONFIG.setdefault('BUILDAH_TOOL', 'buildah')
