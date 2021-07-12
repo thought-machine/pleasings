@@ -197,8 +197,9 @@ def container_image(
     )
 
     # target that gathers the full image (with all its layers)
-    full_img = genrule(
-        name=f'_{name}_full',
+    full_img = build_rule(
+        name=name,
+        tag='full',
         srcs=[image_rule],
         cmd='cp -r $SRCS $OUT',
         outs=[name+'_full'],
@@ -285,7 +286,7 @@ def _copy_base_layers_pre_build(base_image_target):
         cmd = ' && '.join(cp_layers_cmds)
         set_command(rule, cmd)
     return copy_base_layers
- 
+
 
 
 CONFIG.setdefault('BUILDAH_TOOL', 'buildah')
