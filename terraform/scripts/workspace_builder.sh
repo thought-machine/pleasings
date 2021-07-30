@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # This script prepares a Terraform Workspace with:
 # * Terraform Plugins
 # * Terraform Modules
@@ -38,7 +38,10 @@ function plugins_v0.13+ {
         provider_name=$(<"${plugin}/.provider_name")
         version=$(<"${plugin}/.version")
         plugin_dir="${PLUGIN_DIR}/${registry}/${namespace}/${provider_name}/${version}/${CONFIG_OS}_${CONFIG_ARCH}"
-        plugin_bin="$(find "$plugin" -not -path '*/\.*' -type f | head -n1)"
+        # TODO: this returns the first matched file, problem if there are multiple files in the same archive
+        # there is a difference between GNU and BSD find
+        # https://stackoverflow.com/questions/4458120/search-for-executable-files-using-find-command/4458361#4458361
+        plugin_bin="$(find "$plugin" -not -path '*/\.*' -type f -perm +111 | head -n1)"
         mkdir -p "${plugin_dir}"
         cp "$plugin_bin" "${plugin_dir}/"
     done

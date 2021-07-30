@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # This script prepares a Terraform module for use with Please by:
 # * Replacing sub-modules (deps) with local references.
 # * Ensuring all sub-modules have local references.

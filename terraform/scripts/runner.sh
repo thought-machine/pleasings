@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # This script runs Terraform in the target's working directory with the following features:
 # - Plugin cache directory pointing to our prepared plugins directory.
 # - Strips out various noisy output (https://github.com/hashicorp/terraform/issues/20960)

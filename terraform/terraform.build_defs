@@ -204,7 +204,7 @@ def terraform_root(
 
         sh_cmd(
             name = f"{name}_tf_{k}",
-            shell = "/bin/bash",
+            shell = "/usr/bin/env bash",
             cmd = f"""
 set -euo pipefail
 {_bash_version_check_cmd}
@@ -225,6 +225,7 @@ source "$(out_location {RUNNER_SRC})"
     _linters(name, toolchain, workspace, labels, visibility)
 
 _bash_version_check_cmd = """
+# TODO: this does not work as expected. The variables for checking the bash version are expanded before the script is run.
 if [ -z "${BASH_VERSINFO}" ] || [ -z "${BASH_VERSINFO[0]}" ] || [ ${BASH_VERSINFO[0]} -lt 4 ]; then 
     echo "This script requires Bash version >= 4"
     exit 1
@@ -295,7 +296,7 @@ def _linters(
 
         sh_cmd(
             name = f"{name}_tf_{k}",
-            shell = "/bin/bash",
+            shell = "/usr/bin/env bash",
             cmd = f"""
 set -euo pipefail
 {_bash_version_check_cmd}
