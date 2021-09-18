@@ -1,6 +1,6 @@
 def docker_image(name:str, srcs:list=[], image:str=None, version:str='',
                  dockerfile:str='Dockerfile', base_image:str='', repo:str='', labels:list=[],
-                 run_args:str='', test_only:bool=False, visibility:list=None):
+                 pass_env:list=[], run_args:str='', test_only:bool=False, visibility:list=None):
     """docker_image defines a build rule for a Docker image.
 
     You must use `plz run` to actually build the target.
@@ -18,6 +18,7 @@ def docker_image(name:str, srcs:list=[], image:str=None, version:str='',
       repo: Repository to store this image in. If not given then you'll need to set
             default-docker-repo in the [buildconfig] section of your .plzconfig.
       labels: Labels to tag this rule with.
+      pass_env: Environment variables that might be needed to resolve the base image fqn
       run_args: Any additional arguments to provide to 'docker run'.
       test_only: If True, this can only be depended on by test rules.
       visibility: Visibility of this rule.
@@ -35,6 +36,7 @@ def docker_image(name:str, srcs:list=[], image:str=None, version:str='',
         srcs = srcs,
         dockerfile = dockerfile,
         base_image = base_image,
+        pass_env = pass_env,
         test_only = test_only,
     )
 
@@ -55,6 +57,7 @@ def docker_image(name:str, srcs:list=[], image:str=None, version:str='',
         stamp = True,
         visibility = visibility,
         test_only = test_only,
+        pass_env = pass_env,
     )
 
     # docker build
@@ -133,7 +136,7 @@ def docker_image(name:str, srcs:list=[], image:str=None, version:str='',
     return docker_build
 
 
-def _docker_tarball_rule(name, srcs, dockerfile, base_image, test_only):
+def _docker_tarball_rule(name, srcs, dockerfile, base_image, pass_env, test_only):
     """Defines the tarball rule containing all required data for generating the container.
 
     The resulting tarball will contain the Dockerfile as well as any required artifacts.
@@ -155,6 +158,7 @@ def _docker_tarball_rule(name, srcs, dockerfile, base_image, test_only):
                 'fqn': [base_image + '_fqn'],
             },
             outs = [out],
+            pass_env = pass_env,
             cmd = f'FQN="`cat $SRCS_FQN`"; sed -e "s|{base_image}|$FQN|g" $SRCS_DOCKERFILE >> $OUTS',
             test_only = test_only,
         )
