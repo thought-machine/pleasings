@@ -169,7 +169,7 @@ def container_image(
     tag_rule = build_rule(
         name=name + '_tag',
         srcs=srcs,
-        cmd=f'echo -n {version} >> $OUT',
+        cmd=f'echo -n "{version}" >> $OUT',
         outs=[f'{name}_tag'],
         labels=labels + ["image-tag"],
         visibility=visibility,
