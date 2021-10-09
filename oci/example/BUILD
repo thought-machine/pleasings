@@ -30,7 +30,6 @@ container_image(
     name = "multiple_base_image",
     srcs = [":example"],
     base_image = ":intermediate_image",
-    # transitive_base_images = [':docker_style_base'],
     visibility = ["//k8s/example:all"],
 )
 
