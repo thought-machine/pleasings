@@ -140,7 +140,7 @@ def container_image(
     # Best effort cleanup. If this is never executed due to interrupt it will be wiped on shutdown.
     cmds += ['buildah unshare rm -rf $STORE']
 
-    def post_build(name, _):
+    def pre_build(name):
         # Link the layers from all transitive base images at runtime to complete the image.
         transitive_base_targets = get_labels(base_image_target, 'base:') if base_image_target else []
         for rule in [f"{name}_run", f"{name}_load", f"{name}_push"]:
@@ -156,11 +156,11 @@ def container_image(
         cmd=cmds,
         outs=[name],
         labels=labels + ["container-image"],
+        pre_build=pre_build,
         visibility=visibility,
         test_only=test_only,
         tools=[CONFIG.BUILDAH_TOOL],
         exported_deps=[base_image_target] if base_image_target else [],
-        post_build=post_build,
     )
 
     # tag_rule, either a unique hash or the supplied version.
@@ -193,7 +193,7 @@ def container_image(
     if base_image_target:
         data += [base_image_target]
         cmds += [
-            'tmp_dir=\\\$(TMPDIR="{oci_tmpdir}" mktemp -d)',
+            f'tmp_dir=\\\$(TMPDIR="{oci_tmpdir}" mktemp -d)',
             f'cp -rl $(out_location {image_rule})/* \\\$tmp_dir__transitive_base_placeholder__',
             f'cp -l $(out_location {base_image_target})/blobs/sha256/* \\\$tmp_dir/blobs/sha256',
         ]
