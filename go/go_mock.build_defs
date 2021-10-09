@@ -66,7 +66,6 @@ def go_mock(name:str, src_lib:str, visibility:list=None, deps:list=[], package:s
     go_library(
         name=name,
         visibility=visibility,
-        out=f"{name}.a",
         srcs=[mock_srcs],
         test_only=True,
         deps=[

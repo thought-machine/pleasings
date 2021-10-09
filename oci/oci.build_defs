@@ -1,7 +1,8 @@
 def container_image(
     name:str, base_image='',srcs=[],image='', version='', dockerfile='',
     containerfile='', entrypoint=[], cmd=[], repo=CONFIG.get('DEFAULT_DOCKER_REPO', ''),
-    labels=[], test_only=False, visibility:list=None
+    labels=[], run_args:str='', push_args:str='', test_only=False, visibility:list=None,
+    timestamp=0
 ):
     """Build an OCI-compliant image. Uses incremental layering to optimise for please. The OCI
     Specification standardises the docker image format https://github.com/opencontainers/image-spec.
@@ -28,8 +29,11 @@ def container_image(
            single-source images, defaults to a command running that source.
       repo: Optional repository to hold this image. Can also provide env var when calling '_push'.
       labels: Labels to tag this rule with.
+      run_args: Any additional arguments to provide to 'podman run'.
+      push_args: Any additional arguments to provide to 'skopeo copy'.
       test_only: If True, this can only be depended on by test rules.
       visibility: Visibility of this rule.
+      timestamp: set the created timestamp to the specified epoch seconds
     """
     img_id = f"$PKG/{name}"
     image = image or img_id
@@ -38,6 +42,19 @@ def container_image(
         repo += '/'
     if containerfile:
         dockerfile = containerfile
+
+    # OCI_TMPDIR: If your code and /tmp are in different file systems, the hard-link used by
+    # this rule will not work. In that case, you can use the OCI_TMPDIR buildconfig
+    oci_tmpdir = CONFIG.OCI_TMPDIR
+
+    def assert_transitive_base_images_present():
+        """
+        Currently no way to automatically add transitive 'data' dependencies,
+        so this checks the user has provided them explicitly.
+        """
+        bases = get_labels(base_image_target, 'base:')
+        for base in bases:
+            assert base in transitive_base_images, f"{base} missing from transitive_base_images arg"
 
     def format_base_image(srcs_dict:dict, cmds:list, labels:list, base_image:str):
         """
@@ -59,22 +76,22 @@ def container_image(
         """
         context = ''
         if srcs:
-            context = "$TMPDIR/context"
+            context = "$STORE/context"
             srcs_dict['context'] = srcs
-            cmds += [f'mkdir "{context}"', f'mv "$SRCS_CONTEXT" "{context}"']
+            cmds += [f'mkdir "{context}"', f'mv $SRCS_CONTEXT "{context}"']
         return context, cmds
 
-    def build_using_dockerfile(srcs_dict:dict, cmds:list, base_image:str, context:str):
+    def build_using_dockerfile(srcs_dict:dict, cmds:list, base_image:str, context:str, timestamp:int):
         """
         Essentially a 'docker build', but using buildah
         """
         srcs_dict['dockerfile'] = [f'{dockerfile}']
         if base_image:
             base_image = f'--from "{base_image}"'
-        cmds += [f'$TOOL bud --timestamp 0 {base_image} -f "$SRCS_DOCKERFILE" -t "{img_id}" "{context}"']
+        cmds += [f'$TOOL bud --timestamp {timestamp} {base_image} -f "$SRCS_DOCKERFILE" -t "{img_id}" "{context}"']
         return img_id, cmds
 
-    def build(srcs_dict:dict, cmds:list, base_image:str, context:str, entrypoint:list, cmd:list):
+    def build(srcs_dict:dict, cmds:list, base_image:str, context:str, entrypoint:list, cmd:list, timestamp:int):
         """
         Without a dockerfile, use the buildah cli to add layers
         """
@@ -91,7 +108,7 @@ def container_image(
             cmd = _format_exec_list(cmd)
             cmds += [f'$TOOL config --cmd "{cmd}" "$ctr"']
         # commit the image and remove the working container
-        cmds += [f'$TOOL commit --omit-timestamp "$ctr" "{img_id}"']
+        cmds += [f'$TOOL commit --timestamp {timestamp} "$ctr" "{img_id}"']
         return img_id, cmds
 
     # image rule, builds the image and stores it as an oci-formatted dir.
@@ -100,15 +117,15 @@ def container_image(
         # Buildah uses an image store, which can be ephemeral, except that please fails to delete it
         # due to permissions. This uses a cache in /tmp, outside the build rule dir, where it
         # doesnt have to be deleted by please. It is deleted on successful build or system restart.
-        'STORE=$(TMPDIR=/tmp mktemp -d)',
+        f'STORE=$(TMPDIR="{oci_tmpdir}" mktemp -d)',
         'TOOL="$TOOL --root=$STORE/containers --runroot=$STORE/run"',
     ]
     base_image, cmds, labels, base_image_target = format_base_image(srcs_dict, cmds, labels, base_image)
     context, cmds = context(srcs_dict, cmds)
     if dockerfile:
-        img_id, cmds = build_using_dockerfile(srcs_dict, cmds, base_image, context)
+        img_id, cmds = build_using_dockerfile(srcs_dict, cmds, base_image, context, timestamp)
     else:
-        img_id, cmds = build(srcs_dict, cmds, base_image, context, entrypoint, cmd)
+        img_id, cmds = build(srcs_dict, cmds, base_image, context, entrypoint, cmd, timestamp)
     # Write the compressed layers to OUT then remove the image from buildah's store.
     cmds += [f'$TOOL push "{img_id}" "oci:$OUT"']
     cmds += [
@@ -176,7 +193,7 @@ def container_image(
     if base_image_target:
         data += [base_image_target]
         cmds += [
-            'tmp_dir=\\\$(mktemp -d)',
+            'tmp_dir=\\\$(TMPDIR="{oci_tmpdir}" mktemp -d)',
             f'cp -rl $(out_location {image_rule})/* \\\$tmp_dir__transitive_base_placeholder__',
             f'cp -l $(out_location {base_image_target})/blobs/sha256/* \\\$tmp_dir/blobs/sha256',
         ]
@@ -186,11 +203,11 @@ def container_image(
 
     # run_rule, runs the image using podman or docker if podman not found.
     cmd = f'''
-    if [ ! $(command -v {CONFIG.PODMAN_TOOL} &> /dev/null) ]; then
+    if ! command -v {CONFIG.PODMAN_TOOL} &> /dev/null; then
         {CONFIG.SKOPEO_TOOL} copy -q {img_loc} "docker-daemon:`cat $SRC`"
-        docker run -it `cat $SRC` \\\$@
+        docker run -it {run_args} `cat $SRC` \\\$@
     else
-        {CONFIG.PODMAN_TOOL} run -it {img_loc} \\\$@
+        {CONFIG.PODMAN_TOOL} run -it {run_args} {img_loc} \\\$@
     fi'''
     sh_cmd(
         name=name + '_run',
@@ -210,7 +227,7 @@ def container_image(
     cmds += [
         f'from="oci:$(out_location {image_rule})"',
         f'to="\\\${{DEST:-docker://}}\\\${{REPO:-{repo}}}\\\${{REPO:+/}}{image}:\\\${{TAG:-`cat $SRC`}}"',
-        f'{CONFIG.SKOPEO_TOOL} copy -f {CONFIG.IMAGE_MANIFEST_FORMAT} -q {img_loc} "\\\$to"',
+        f'{CONFIG.SKOPEO_TOOL} copy -q \\\${{PUSH_ARGS:-{push_args}}} -f {CONFIG.IMAGE_MANIFEST_FORMAT} {img_loc} "\\\$to"',
         'echo "\\\$from copied to \\\$to"',
     ]
     sh_cmd(
@@ -245,3 +262,4 @@ CONFIG.setdefault('IMAGE_MANIFEST_FORMAT', 'v2s2')
 CONFIG.setdefault('BUILDAH_TOOL', 'buildah')
 CONFIG.setdefault('SKOPEO_TOOL', 'skopeo')
 CONFIG.setdefault('PODMAN_TOOL', 'podman')
+CONFIG.setdefault('OCI_TMPDIR', '/tmp')
