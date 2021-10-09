@@ -1,5 +1,5 @@
 def container_image(
-    name:str, base_image='', transitive_base_images=[], srcs=[],image='', version='', dockerfile='',
+    name:str, base_image='',srcs=[],image='', version='', dockerfile='',
     containerfile='', entrypoint=[], cmd=[], repo=CONFIG.get('DEFAULT_DOCKER_REPO', ''),
     labels=[], test_only=False, visibility:list=None
 ):
@@ -18,8 +18,6 @@ def container_image(
       base_image: The build target or image name to use as a base. Overrides the 'FROM' command in a
                   Containerfile. If supplying an image name instead of a target, include the digest
                   to ensure deterministic builds.
-      transitive_base_images: A list of container_image targets on which the base_image depends, if
-                              any. Required as artifacts do not contain the layers of their bases.
       srcs: Source files that are available within the containerfile.
       image: Name of the image to create, otherwise defaults to the rule path.
       version: Optional version to tag the image. If not set, a hash will be used.
@@ -40,36 +38,20 @@ def container_image(
         repo += '/'
     if containerfile:
         dockerfile = containerfile
-    transitive_base_images = [canonicalise(rule) for rule in transitive_base_images]
-    base_image_target = base_image
 
-    def assert_transitive_base_images_present():
-        """
-        Currently no way to automatically add transitive 'data' dependencies,
-        so this checks the user has provided them explicitly.
-        """
-        bases = get_labels(base_image_target, 'base:')
-        for base in bases:
-            assert base in transitive_base_images, f"{base} missing from transitive_base_images arg"
-
-    def format_base_image(srcs_dict:dict, cmds:list, labels:list):
+    def format_base_image(srcs_dict:dict, cmds:list, labels:list, base_image:str):
         """
         Format the base image for use by buildah.
         """
-        pre_build = None
+        base_image_target = None
         # if the base is target, add its layers and those of its parents as dependencies
         if base_image.startswith("//") or base_image.startswith(":"):
-            pre_build = lambda rule: assert_transitive_base_images_present()
-            base_image = canonicalise(base_image)
-            labels += [f'base:{base_image}']
-            srcs_dict['base'] = [base_image]
+            base_image_target = canonicalise(base_image)
+            labels += [f'base:{base_image_target}']
+            srcs_dict['base'] = [base_image_target]
             base_image = 'oci:"$SRCS_BASE"'
-            if transitive_base_images:
-                srcs_dict['transitive_base'] = transitive_base_images
-                for base in transitive_base_images:
-                    # link the missing layers from the base's parents into the base layer store
-                    cmds += [f'cp -l $(location {base})/blobs/sha256/* "$SRCS_BASE/blobs/sha256"']
-        return base_image, cmds, labels, pre_build
+            cmds += ['find . -type f -wholename **/blobs/sha256/* -exec cp -l {} "$SRCS_BASE/blobs/sha256" \;']
+        return base_image, cmds, labels, base_image_target
 
     def context(srcs_dict:dict, cmds:list):
         """
@@ -121,7 +103,7 @@ def container_image(
         'STORE=$(TMPDIR=/tmp mktemp -d)',
         'TOOL="$TOOL --root=$STORE/containers --runroot=$STORE/run"',
     ]
-    base_image, cmds, labels, pre_build = format_base_image(srcs_dict, cmds, labels)
+    base_image, cmds, labels, base_image_target = format_base_image(srcs_dict, cmds, labels, base_image)
     context, cmds = context(srcs_dict, cmds)
     if dockerfile:
         img_id, cmds = build_using_dockerfile(srcs_dict, cmds, base_image, context)
@@ -129,38 +111,48 @@ def container_image(
         img_id, cmds = build(srcs_dict, cmds, base_image, context, entrypoint, cmd)
     # Write the compressed layers to OUT then remove the image from buildah's store.
     cmds += [f'$TOOL push "{img_id}" "oci:$OUT"']
+    cmds += [
+        # convert manifest with skopeo as buildah doesnt manifest differs from registries
+        f'{CONFIG.SKOPEO_TOOL} copy -f {CONFIG.IMAGE_MANIFEST_FORMAT} oci:$OUT dir:dir',
+        # save the digest to use as an immutable ID later.
+        f'{CONFIG.SKOPEO_TOOL} manifest-digest dir/manifest.json | cut -d: -f2 > $OUT/digest.txt',
+    ]
     if srcs_dict.get('base'):
         # Remove base image layers, leaving a small incremental artifact for fast http caching.
         cmds += ['cd "$SRCS_BASE/blobs/sha256"', 'find . -exec rm -rf $OUT/blobs/sha256/{} \;']
     # Best effort cleanup. If this is never executed due to interrupt it will be wiped on shutdown.
     cmds += ['buildah unshare rm -rf $STORE']
+
+    def post_build(name, _):
+        # Link the layers from all transitive base images at runtime to complete the image.
+        transitive_base_targets = get_labels(base_image_target, 'base:') if base_image_target else []
+        for rule in [f"{name}_run", f"{name}_load", f"{name}_push"]:
+            command = ''
+            for transitive_base_target in transitive_base_targets:
+                command += f' && cp -l $(out_location {transitive_base_target})/blobs/sha256/* \\\$tmp_dir/blobs/sha256'
+                add_data(rule, transitive_base_target)
+            set_command(rule, get_command(rule).replace("__transitive_base_placeholder__", command))
+
     image_rule = genrule(
         name=name,
         srcs=srcs_dict,
         cmd=cmds,
         outs=[name],
         labels=labels + ["container-image"],
-        pre_build=pre_build,
         visibility=visibility,
         test_only=test_only,
         tools=[CONFIG.BUILDAH_TOOL],
+        exported_deps=[base_image_target] if base_image_target else [],
+        post_build=post_build,
     )
 
     # tag_rule, either a unique hash or the supplied version.
-    if version:
-        srcs = []
-    else:
-        srcs = [image_rule]
-        if CONFIG.HOSTOS == 'linux':
-            version = f'$(echo $(hash {image_rule}) | sha256sum - | cut -f1 -d" ")'
-        elif CONFIG.HOSTOS == 'darwin':
-            version = f'$(echo $(hash {image_rule}) | shasum -a 256 - | cut -f1 -d" ")'
-        else:
-            version = 'no_idea_how_to_compute_version_on_this_host'
+    srcs = [image_rule] if not version else []
+    version = version or "`cat $SRC/digest.txt`"
     tag_rule = build_rule(
         name=name + '_tag',
         srcs=srcs,
-        cmd=f'echo -n "{version}" >> $OUT',
+        cmd=f'echo -n {version} >> $OUT',
         outs=[f'{name}_tag'],
         labels=labels + ["image-tag"],
         visibility=visibility,
@@ -181,12 +173,13 @@ def container_image(
     # for all run rules, first link base image(s) layers into the image store so it is complete.
     data = [image_rule]
     cmds = []
-    if srcs_dict.get('base'):
-        base_images = transitive_base_images + srcs_dict['base']
-        data += base_images
-        cmds += ['tmp_dir=\\\$(mktemp -d)', f'cp -rl $(out_location {image_rule})/* \\\$tmp_dir']
-        for base in base_images:
-            cmds += [f'cp -l $(out_location {base})/blobs/sha256/* "\\\$tmp_dir/blobs/sha256"']
+    if base_image_target:
+        data += [base_image_target]
+        cmds += [
+            'tmp_dir=\\\$(mktemp -d)',
+            f'cp -rl $(out_location {image_rule})/* \\\$tmp_dir__transitive_base_placeholder__',
+            f'cp -l $(out_location {base_image_target})/blobs/sha256/* \\\$tmp_dir/blobs/sha256',
+        ]
         img_loc = f'oci:\\\$tmp_dir'
     else:
         img_loc = f'oci:$(out_location {image_rule})'
@@ -217,12 +210,12 @@ def container_image(
     cmds += [
         f'from="oci:$(out_location {image_rule})"',
         f'to="\\\${{DEST:-docker://}}\\\${{REPO:-{repo}}}\\\${{REPO:+/}}{image}:\\\${{TAG:-`cat $SRC`}}"',
-        f'{CONFIG.SKOPEO_TOOL} copy -q {img_loc} "\\\$to"',
+        f'{CONFIG.SKOPEO_TOOL} copy -f {CONFIG.IMAGE_MANIFEST_FORMAT} -q {img_loc} "\\\$to"',
         'echo "\\\$from copied to \\\$to"',
     ]
     sh_cmd(
         name=name + '_push',
-        cmd=cmds + [cmd],
+        cmd=cmds,
         srcs=[tag_rule],
         data=data,
         visibility=visibility,
@@ -248,7 +241,7 @@ def _format_exec_list(cmds: list) -> str:
     cmds = '\\",\\"'.join(cmds)
     return f'[\\"{cmds}\\"]'
 
-
+CONFIG.setdefault('IMAGE_MANIFEST_FORMAT', 'v2s2')
 CONFIG.setdefault('BUILDAH_TOOL', 'buildah')
 CONFIG.setdefault('SKOPEO_TOOL', 'skopeo')
 CONFIG.setdefault('PODMAN_TOOL', 'podman')
