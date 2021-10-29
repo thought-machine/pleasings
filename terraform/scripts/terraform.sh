@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # This script provides a tool for working with Terraform via the Please Build System.
 set -Eeuo pipefail
 
@@ -43,7 +43,8 @@ function provider_build {
     if [[ "$provider_path" == *.zip ]]; then
         unzip "$provider_path" -d tmp
         mkdir -p "$out"
-        mv tmp/* "$out/"
+        plugin_bin="$(find tmp -type f -name "terraform-provider-${provider_name}*")"
+        mv "$plugin_bin" "$out/"
     else
         mv "$provider_path" "$out/"
     fi
@@ -208,7 +209,8 @@ function _cache_providers_v0.11+ {
     mkdir -p "${plugin_dir}"
 
     for plugin_path in "${plugin_paths[@]}"; do
-        plugin_bin="$(find "$plugin_path" -not -path '*/\.*' -type f | head -n1)"
+        provider_name=$(<"${plugin_path}/$PLZ_TF_METADATA_DIR/.provider_name")
+        plugin_bin="$(find "$plugin_path" -type f -name "terraform-provider-${provider_name}*")"
         rsync "$plugin_bin" "${plugin_dir}/"
     done
 }
@@ -239,7 +241,7 @@ function _cache_providers_v0.13+ {
         os=$(<"${plugin_path}/$PLZ_TF_METADATA_DIR/.os")
         arch=$(<"${plugin_path}/$PLZ_TF_METADATA_DIR/.arch")
         plugin_dir="${cache_dir}/${registry}/${namespace}/${provider_name}/${version}/${os}_${arch}"
-        plugin_bin="$(find "$plugin_path" -not -path '*/\.*' -type f | head -n1)"
+        plugin_bin="$(find "$plugin_path" -type f -name "terraform-provider-${provider_name}*")"
         mkdir -p "${plugin_dir}"
         rsync "$plugin_bin" "${plugin_dir}/"
     done

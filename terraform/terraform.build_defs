@@ -201,7 +201,7 @@ $TOOLS root_build \\
 
     terraform_workspace = sh_cmd(
         name = name,
-        shell = "/bin/bash",
+        shell = "/usr/bin/env bash",
         cmd = f"""
 # Source the workspace (virtual environment) for running Terraform commands.
 eval "\\\$( $(out_location {TERRAFORM_PLZ_TOOL}) root_workspace \\
@@ -233,7 +233,7 @@ eval "set -x; \\\$@"
 
         sh_cmd(
             name = f"{name}_{workflow}",
-            shell = "/bin/bash",
+            shell = "/usr/bin/env bash",
             data = [terraform_workspace],
             cmd = f"$(out_exe {terraform_workspace}) \"{cmd} \\\$@\"",
             labels = [f"terraform_{workflow}"],
