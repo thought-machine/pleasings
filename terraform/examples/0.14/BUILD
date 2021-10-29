@@ -8,8 +8,5 @@ terraform_root(
         "//third_party/terraform/module:cloudposse_null_label_0_12",
         "//terraform/examples/0.14/my_module:my_module",
     ],
-    providers = [
-        "//third_party/terraform/provider:null",
-    ],
     var_files = ["my_vars.tfvars"],
 )

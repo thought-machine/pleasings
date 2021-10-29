@@ -15,12 +15,9 @@ This build rule allows you to specify a Terraform version to download and re-use
 
 ## `terraform_provider`
 
-The use of this feature is **optional**.
+The use of this feature is **optional**. **Note**: It is unstable in Terraform 0.14+ due to the [Terraform dependency lock file](https://www.terraform.io/docs/language/dependency-lock.html).
 
 This build rule allows you to specify a Terraform provider to download and **cache** with `terraform_root` rules via the `providers` parameter. Any referenced `providers` will populate and configure a [Terraform provider cache](https://www.terraform.io/docs/cli/config/config-file.html#provider-plugin-cache) for Terraform to use with that `terraform_root`. 
-
-
-**Note:** If using this feature and `plz run parallel ...`, ensure that you have referenced all providers that are used in your Terraform configuration as not doing so may lead to a dirty cache as [Terraform does not support parallel updating of a Terraform provider cache directory](https://github.com/hashicorp/terraform/issues/26819).
 
 ## `terraform_module`
 
