@@ -158,6 +158,7 @@ def terraform_root(
     toolchain: str = None,
     labels: list = [],
     visibility: list = [],
+    add_default_workflows: bool = True,
 ):
     """Build rule for running Terraform against Terraform configuration.
     Args:
@@ -169,6 +170,7 @@ def terraform_root(
         toolchain: The Terraform toolchain to use with against the srcs.
         labels: The additonal labels to add to the build rule.
         visibility: The targets to make the toolchain visible to.
+        add_default_workflows: Whether or not to include the default Terraform workflows as Please targets (_plan, _apply, _destroy, _validate).
     """
     # build a Terraform root workspace
     srcs_csv = _to_csv_array([f"$(location {src})" for src in srcs])
@@ -221,23 +223,24 @@ eval "set -x; \\\$@"
         visibility = visibility,
     )
 
-    workflows = {
-        "plan": "terraform init && terraform plan",
-        "apply": "terraform init && terraform apply",
-        "destroy": "terraform init && terraform destroy",
-        "validate": "terraform init -backend=false && terraform validate",
-    }
+    if add_default_workflows:
+        default_workflows = {
+            "plan": "terraform init && terraform plan",
+            "apply": "terraform init && terraform apply",
+            "destroy": "terraform init && terraform destroy",
+            "validate": "terraform init -backend=false && terraform validate",
+        }
 
-    for workflow in workflows.keys():
-        cmd = workflows[workflow]
+        for workflow in default_workflows.keys():
+            cmd = default_workflows[workflow]
 
-        sh_cmd(
-            name = f"{name}_{workflow}",
-            shell = "/usr/bin/env bash",
-            data = [terraform_workspace],
-            cmd = f"$(out_exe {terraform_workspace}) \"{cmd} \\\$@\"",
-            labels = [f"terraform_{workflow}"],
-        )
+            sh_cmd(
+                name = f"{name}_{workflow}",
+                shell = "/usr/bin/env bash",
+                data = [terraform_workspace],
+                cmd = f"$(out_exe {terraform_workspace}) \"{cmd} \\\$@\"",
+                labels = [f"terraform_{workflow}"],
+            )
 
     return terraform_workspace
 

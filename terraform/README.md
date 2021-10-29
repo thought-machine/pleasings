@@ -67,7 +67,7 @@ This build rule takes arbitrary input as commands to run within the Root module'
 plz run //my_infrastructure_tf_workspace -- "terraform init && terraform console"
 ```
 
-It also generates the following subrules which perform the Terraform workflows:
+It also generates the following default subrules which perform the Terraform workflows:
  * `_plan`: `terraform init && terraform plan $@`
  * `_apply`: `terraform init && terraform apply $@`
  * `_destroy`: `terraform init && terraform destroy $@`
@@ -77,6 +77,53 @@ For all of these workflows, we support passing in flags via please, e.g.:
 ```
 $ plz run //my_tf:my_tf_plan -- -lock=false
 $ plz run //my_tf:my_tf_apply -- --target resource_type.my_resource
+```
+
+### Overriding the default subrules
+
+If you'd like to override the default subrules (`_plan`, `_apply`, `_destroy`, `_validate`) to include other commands or flags, e.g. add flags `terraform init -lock=false`, you can override the terraform_root build rule and set `add_default_workflows = False` to the `terraform_root`. An example is below:
+
+```python
+# //build/defs/terraform.build_defs
+subinclude("//third_party/defs:terraform")
+_upstream_terraform_root = terraform_root
+
+def terraform_root(
+    name: str,
+    srcs: list,
+    var_files: list = [],
+    modules: list = [],
+    providers: list = [],
+    toolchain: str = None,
+    labels: list = [],
+    visibility: list = [],
+): 
+    terraform_workspace = _upstream_terraform_root(
+      name=name, 
+      srcs=srcs, 
+      var_files=var_files, 
+      modules=modules, 
+      providers=providers, 
+      toolchain=toolchain, 
+      labels=labels, 
+      visbility=visibility,
+      add_default_workflows=False,
+    )
+    workflows = {
+        "plan": "terraform init <ARGS> && terraform plan",
+        "apply": "terraform init <ARGS> && terraform apply",
+    }
+
+    for workflow in workflows.keys():
+        cmd = workflows[workflow]
+
+        sh_cmd(
+            name = f"{name}_{workflow}",
+            shell = "/usr/bin/env bash",
+            data = [terraform_workspace],
+            cmd = f"$(out_exe {terraform_workspace}) \"{cmd} \\\$@\"",
+            labels = [f"terraform_{workflow}"],
+        )
 ```
 
 See `//terraform/examples/<version>/BUILD` for examples of `terraform_root`. 
