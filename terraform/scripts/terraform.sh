@@ -258,7 +258,7 @@ function _cache_providers {
     terraform_binary="$1"
     shift
     provider_paths=("$@")
-    terraform_minor_version="$(head -n1 < <($terraform_binary version) | awk '{ print $2 }' | cut -f1-2 -d\.)"
+    terraform_minor_version="$(head -n1 <($terraform_binary version) | awk '{ print $2 }' | cut -f1-2 -d\.)"
 
     case "${terraform_minor_version}" in
         "v0.11") _cache_providers_v0.11+ "$PLZ_TF_PLUGIN_CACHE_DIR" "${provider_paths[@]}" ;;
