@@ -9,17 +9,10 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Terraform lint
-        run: ./pleasew run sequential --include lint //terraform/...
-        env:
-          TF_CLEAN_OUTPUT: "true"
+        run: ./pleasew -v=2 -p run parallel --output=group_immediate --include lint //terraform/...
 
       - name: Terraform plan
-        run: ./pleasew query alltargets //terraform/... | grep "_plan$" | ./pleasew run sequential -
-        env:
-          TF_CLEAN_OUTPUT: "true"
+        run: ./pleasew query alltargets //terraform/... | grep "_plan$" | ./pleasew -v=2 -p run parallel --output=group_immediate -
 
       - name: Terraform apply
-        run: ./pleasew query alltargets //terraform/... | grep "_apply$" | ./pleasew run sequential -
-        env:
-          TF_CLI_ARGS_apply: "-auto-approve"
-          TF_CLEAN_OUTPUT: "true"
+        run: ./pleasew query alltargets //terraform/... | grep "_apply$" | ./pleasew -v=2 -p run parallel --output=group_immediate --arg="-auto-approve" -

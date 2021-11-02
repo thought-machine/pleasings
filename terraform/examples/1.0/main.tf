@@ -32,5 +32,5 @@ module "label" {
 }
 
 module "my_label" {
-  source = "//terraform/examples/0.14/my_module:my_module"
+  source = "//terraform/examples/1.0/my_module:my_module"
 }
