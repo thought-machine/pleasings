@@ -40,7 +40,7 @@ module "my_module" {
 
 ## `terraform_root`
 
-This build rule allows to specify a [Terraform root module](https://www.terraform.io/docs/language/modules/index.html#the-root-module) which is the root configuration where Terraform will be executed. In this build rule, you reference the `srcs` for the root module as well as optionally (but recommended) the modules those `srcs` use.
+This build rule allows to specify a [Terraform root module](https://www.terraform.io/docs/language/modules/index.html#the-root-module) which is the root configuration where Terraform will be executed. In this build rule, you reference the `srcs` for the root module as well as optionally (but recommended) the `modules` those `srcs` use.
 
 We support substitution of the following please build environment variables into your source terraform files:
  - `PKG`
@@ -81,7 +81,7 @@ $ plz run //my_tf:my_tf_apply -- --target resource_type.my_resource
 
 ### Overriding the default subrules
 
-If you'd like to override the default subrules (`_plan`, `_apply`, `_destroy`, `_validate`) to include other commands or flags, e.g. add flags `terraform init -lock=false`, you can override the terraform_root build rule and set `add_default_workflows = False` to the `terraform_root`. An example is below:
+If you'd like to override the default subrules (`_plan`, `_apply`, `_destroy`, `_validate`) to include other commands or flags, e.g. add flags `terraform init -lock=false`, you can override the `terraform_root` build rule and set `add_default_workflows = False` to the `terraform_root`. An example is below:
 
 ```python
 # //build/defs/terraform.build_defs
@@ -143,14 +143,14 @@ TERRAFORM_DEF_VERSION = "750b9ecbf9f7cf1ed8a63eb6c4f261c3223e8004"
 
 remote_file(
     name = "terraform",
-    url = f"https://raw.githubusercontent.com/VJftw/pleasings/{TERRAFORM_DEF_VERSION}/terraform/terraform.build_defs",
+    url = f"https://raw.githubusercontent.com/thought-machine/pleasings/{TERRAFORM_DEF_VERSION}/terraform/terraform.build_defs",
     hashes = ["4d4aabff148f46610668725be989d2c8c20990741cff9b6c8575d5d530be004a"],
     visibility = ["PUBLIC"],
 )
 
 remote_file(
     name = "terraform_tool",
-    url = f"https://raw.githubusercontent.com/VJftw/pleasings/{TERRAFORM_DEF_VERSION}/terraform/scripts/terraform.sh",
+    url = f"https://raw.githubusercontent.com/thought-machine/pleasings/{TERRAFORM_DEF_VERSION}/terraform/scripts/terraform.sh",
     hashes = ["c7af1cebd9bc6345103fb71a8f933ecbb9b7026cb2aed43f98ed3e2c5da79559"],
     visibility = ["PUBLIC"],
     binary = True,
