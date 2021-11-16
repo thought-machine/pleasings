@@ -58,7 +58,7 @@ def docker_image(name:str, srcs:list=[], image:str=None, version:str='',
     )
 
     # docker build
-    cmd = f'docker build -t `cat $SRCS_FQN` -f $(basename $SRCS_DOCKERFILE) - < $(out_location {tarball})'
+    cmd = f'env && docker build -t `cat $SRCS_FQN` -f $(basename $SRCS_DOCKERFILE) - < $(out_location {tarball})'
     if base_image:
         cmd = f'./$(out_location {base_image}) && {cmd}'
     docker_build = sh_cmd(
