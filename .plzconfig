@@ -1,5 +1,5 @@
 [please]
-version = >=16.1.0
+version = >=16.7.0
 
 [build]
 path = /usr/local/bin:/usr/bin:/bin
@@ -9,7 +9,6 @@ path = ~/.yarn/bin
 
 [go]
 importpath = github.com/thought-machine/pleasings
-PleaseGoTool = ~/please/plz-out/bin/tools/please_go/please_go
 
 [buildconfig]
 grm-test-main = //grm:test_main
@@ -25,9 +24,7 @@ default-docker-repo = repo.please.build
 yarn-workspace = //js/yarn_workspace_example:workspace
 yarn-offline-mirror = js/yarn_workspace_example/third_party
 ; terraform
-terraform-module-builder-src = //terraform/scripts:module_builder
-terraform-runner-src = //terraform/scripts:runner
-terraform-workspace-builder-src = //terraform/scripts:workspace_builder
+terraform-plz-tool = //terraform/scripts:terraform
 
 [proto]
 protoctool = //third_party/proto:protoc

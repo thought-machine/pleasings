@@ -1,6 +1,6 @@
 for f in glob(["*.sh"]):
-    export_file(
+    sh_binary(
         name=splitext(f)[0],
-        src = f,
+        main = f,
         visibility = ["PUBLIC"],
     )
