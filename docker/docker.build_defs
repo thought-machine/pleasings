@@ -1,6 +1,6 @@
 def docker_image(name:str, srcs:list=[], image:str=None, version:str='',
                  dockerfile:str='Dockerfile', base_image:str='', repo:str='', labels:list=[],
-                 pass_env:list=[], run_args:str='', test_only:bool=False, visibility:list=None,  build_args:dict={}):
+                 pass_env:list=[], run_args:str='', test_only:bool=False, visibility:list=None,  build_args:list=[]):
     """docker_image defines a build rule for a Docker image.
 
     You must use `plz run` to actually build the target.
