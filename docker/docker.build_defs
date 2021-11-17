@@ -55,13 +55,16 @@ def docker_image(name:str, srcs:list=[], image:str=None, version:str='',
         deps = [f'{base_image}_fqn' if base_image else None],
         labels = labels + ["docker-fqn"],
         stamp = True,
-        visibility = visibility,
         test_only = test_only,
         pass_env = pass_env,
     )
 
+    build_args_str=''
+    for arg in build_args:
+        build_args_str += f' --build-arg {arg}=$SECRET_{arg}'
+
     # docker build
-    cmd = f'env && docker build -t `cat $SRCS_FQN` -f $(basename $SRCS_DOCKERFILE) - < $(out_location {tarball})'
+    cmd = f'docker build {build_args_str} -t `cat $SRCS_FQN` -f $(basename $SRCS_DOCKERFILE) - < $(out_location {tarball})'
     if base_image:
         cmd = f'./$(out_location {base_image}) && {cmd}'
     docker_build = sh_cmd(
