@@ -22,6 +22,7 @@ def docker_image(name:str, srcs:list=[], image:str=None, version:str='',
       run_args: Any additional arguments to provide to 'docker run'.
       test_only: If True, this can only be depended on by test rules.
       visibility: Visibility of this rule.
+      build_args: Inject arguments from secrets when building the image.
     """
     image = image or name
     if base_image:
@@ -59,6 +60,7 @@ def docker_image(name:str, srcs:list=[], image:str=None, version:str='',
         pass_env = pass_env,
     )
 
+    # create build_arg arguments
     build_args_str=''
     for arg in build_args:
         build_args_str += f' --build-arg {arg}=$SECRET_{arg}'
