@@ -1,6 +1,6 @@
 def docker_image(name:str, srcs:list=[], image:str=None, version:str='',
                  dockerfile:str='Dockerfile', base_image:str='', repo:str='', labels:list=[],
-                 pass_env:list=[], run_args:str='', test_only:bool=False, visibility:list=None,  build_args:list=[]):
+                 pass_env:list=[], run_args:str='', test_only:bool=False, visibility:list=None, build_args:str=''):
     """docker_image defines a build rule for a Docker image.
 
     You must use `plz run` to actually build the target.
@@ -22,7 +22,7 @@ def docker_image(name:str, srcs:list=[], image:str=None, version:str='',
       run_args: Any additional arguments to provide to 'docker run'.
       test_only: If True, this can only be depended on by test rules.
       visibility: Visibility of this rule.
-      build_args: Inject arguments from secrets when building the image.
+      build_args: Any arguments to provide to 'docker build'
     """
     image = image or name
     if base_image:
@@ -61,13 +61,8 @@ def docker_image(name:str, srcs:list=[], image:str=None, version:str='',
         pass_env = pass_env,
     )
 
-    # create build_arg arguments
-    build_args_str=''
-    for arg in build_args:
-        build_args_str += f' --build-arg {arg}=$SECRET_{arg}'
-
     # docker build
-    cmd = f'docker build {build_args_str} -t `cat $SRCS_FQN` -f $(basename $SRCS_DOCKERFILE) - < $(out_location {tarball})'
+    cmd = f'docker build {build_args} -t `cat $SRCS_FQN` -f $(basename $SRCS_DOCKERFILE) - < $(out_location {tarball})'
     if base_image:
         cmd = f'./$(out_location {base_image}) && {cmd}'
     docker_build = sh_cmd(
