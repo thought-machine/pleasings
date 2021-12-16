@@ -15,5 +15,8 @@ docker_image(
     srcs = [":example"],
     base_image = ":base",
     run_args = "-p 8000:8000",
-    visibility = ["//k8s/example:all"],
+    visibility = [
+        "//k8s/example:all",
+        "//helm/example:all"
+    ],
 )
