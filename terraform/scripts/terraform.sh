@@ -316,7 +316,7 @@ EOF
     terraform_workspace="${PLZ_TF_WORKSPACE_BASE}/$(echo "$root_module" | sed 's#^.*plz-out/gen##')"
     log::debug "workspace: ${terraform_workspace}"
     mkdir -p "${terraform_workspace}"
-    rsync -ah --delete --exclude=.terraform* "${root_module}/" "${terraform_workspace}/"
+    rsync -ah --delete --exclude=.terraform* --exclude=*.tfstate "${root_module}/" "${terraform_workspace}/"
 
     # change the end-user's working directory to the Terraform workspace, suitable for running `terraform` commands.
     cat <<EOF
