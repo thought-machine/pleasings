@@ -179,14 +179,16 @@ function _colocate_modules {
     if [ ${#modules[@]} -ne 0 ]; then
         mkdir "${out}/modules/"
         for m in "${modules[@]}"; do
-            replace="./modules/$(basename "$m")"
+            log::debug "colocating '${m}'"
+            replace="./modules/${m}"
 
             mapfile -t searches <"${m}/${PLZ_TF_METADATA_DIR}/.module_aliases"
             for search in "${searches[@]}"; do
-                log::debug "replacing ${search} with ${replace}"
+                log::debug "replacing '${search}' with '${replace}'"
                 find . -name "*.tf" -exec sed -i  "s#\"[^\"]*${search}[^\"]*\"#\"${replace}\"#g" {} +
             done
-            cp -r "$m" "${out}/modules/"
+            mkdir -p "${out}/modules/${m}"
+            cp -r "$m" "${out}/modules/$(dirname ${m})/"
         done
     fi
 }
