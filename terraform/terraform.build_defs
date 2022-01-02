@@ -159,6 +159,9 @@ def terraform_root(
     labels: list = [],
     visibility: list = [],
     add_default_workflows: bool = True,
+    additional_workspace_data: list = [],
+    pre_workspace_cmd: str = "",
+    post_workspace_cmd: str = "",
 ):
     """Build rule for running Terraform against Terraform configuration.
     Args:
@@ -171,6 +174,9 @@ def terraform_root(
         labels: The additonal labels to add to the build rule.
         visibility: The targets to make the toolchain visible to.
         add_default_workflows: Whether or not to include the default Terraform workflows as Please targets (_plan, _apply, _destroy, _validate).
+        additional_workspace_data: Additional data to include at Terraform runtime.
+        pre_workspace_cmd: Additional commands to run to execute before executing Terraform commands.
+        post_workspace_cmd: Additional commands to run to execute after executing Terraform commands.
     """
     # build a Terraform root workspace
     srcs_csv = _to_csv_array([f"$(location {src})" for src in srcs])
@@ -200,6 +206,7 @@ $TOOLS root_build \\
     # determine the terraform binary to use
     toolchain = toolchain or TERRAFORM_DEFAULT_TOOLCHAIN
     providers_csv_array = _to_csv_array([f"$(out_location {provider})" for provider in providers])
+    additional_workspace_data_csv_array = _to_csv_array([f"$(out_location {data})" for data in additional_workspace_data])
 
     terraform_workspace = sh_cmd(
         name = name,
@@ -211,14 +218,20 @@ eval "\\\$( $(out_location {TERRAFORM_PLZ_TOOL}) root_workspace \\
     --os="$OS" \\
     --arch="$ARCH" \\
     --root-module="$(out_location {root})" \\
-    --provider-paths="{providers_csv_array}"
-)" 
-    
+    --provider-paths="{providers_csv_array}" \\
+    --additional-data="{additional_workspace_data_csv_array}"
+)"
+
+# Run pre commands
+{pre_workspace_cmd}
 
 # Run the provided commands, if any.
 eval "set -x; \\\$@"
+
+# Run post commands
+{post_workspace_cmd}
         """,
-        data = [root, toolchain, TERRAFORM_PLZ_TOOL] + providers,
+        data = [root, toolchain, TERRAFORM_PLZ_TOOL] + providers + additional_workspace_data,
         labels = [f"terraform_workspace"] + labels,
         visibility = visibility,
     )

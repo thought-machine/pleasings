@@ -280,18 +280,23 @@ function root_workspace {
     arch="$(_parse_flag arch "$@")"
     root_module="$(_parse_flag root-module "$@")"
     IFS=',' read -r -a provider_paths <<< "$(_parse_flag provider-paths "$@")"
+    IFS=',' read -r -a data <<< "$(_parse_flag additional-data "$@")"
+
+    cat <<EOF
+set -Eeuo pipefail
+EOF
+
+    script_path="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+    # shellcheck disable=SC2001
+    repo_path="$( echo "$script_path" | sed 's#/plz-out.*$##' )"
 
     # use absolute plz-out/ path when referring to terraform_binary at `plz run ...`-time.
     if [[ $terraform_binary == *"plz-out/bin"* ]]; then
-        script_path="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-        # shellcheck disable=SC2001
-        repo_path="$( echo "$script_path" | sed 's#/plz-out.*$##' )"
         terraform_binary="$repo_path/$terraform_binary"
     fi
 
     # add the `terraform` binary to the end-user's $PATH.
     cat <<EOF
-set -e
 PATH="$(dirname "${terraform_binary}"):$PATH"
 export PATH
 EOF
@@ -315,11 +320,20 @@ EOF
     # We have used TMPDIR as it is more likely to result in consistent paths across different
     # machines. This allows us to apply a pre-generated Terraform plan on a different machine
     # regardless of where the repository is cloned to.
-    terraform_workspace="${PLZ_TF_WORKSPACE_BASE}/$(echo "$root_module" | sed 's#^.*plz-out/gen##')"
+    terraform_workspace="${PLZ_TF_WORKSPACE_BASE}/$(echo "$root_module" | sed 's#^.*plz-out/gen/##')"
     log::debug "workspace: ${terraform_workspace}"
     mkdir -p "${terraform_workspace}"
     rsync -ah --delete --exclude=.terraform* --exclude=*.tfstate "${root_module}/" "${terraform_workspace}/"
 
+    # and add a symbolic link to plz-out so we can use data from there at Terraform runtime.
+    cat <<EOF
+ln -s "${repo_path}/plz-out" "${terraform_workspace}/plz-out"
+EOF
+    # set the GIT_DIR env var so git commands at Terraform runtime still work.
+    cat <<EOF
+GIT_DIR="$repo_path/.git"
+export GIT_DIR
+EOF
     # change the end-user's working directory to the Terraform workspace, suitable for running `terraform` commands.
     cat <<EOF
 printf "..> working directory: %s\n" "${terraform_workspace}"
