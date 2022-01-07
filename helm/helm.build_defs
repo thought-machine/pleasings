@@ -1,0 +1,238 @@
+subinclude("//helm/k8s_fork")
+
+
+def chart(name:str='chart', chart_name:str, version:str='', repo:str='', oci_registry:str, oci_registry_username:str, oci_registry_password:str, containers:list=[], params:dict=None, sub_charts:list=[], labels:list=[], visibility:list=None):
+  if not repo:
+    repo = check_config('DEFAULT_DOCKER_REPO', example='repo.com/repo')
+
+  sub_charts = [sub_chart for sub_chart in sub_charts if sub_chart]
+  sub_charts = [canonicalise(sub_chart) for sub_chart in sub_charts]
+  containers = [canonicalise(container) for container in containers]
+
+  chart_tmp_files=filegroup(
+    name = f'_tmp_files',
+    srcs = glob(["charts/**/*"], exclude = ["charts/*.gz"]) +
+      glob(["templates/**/*.yaml"]) +
+      glob(["templates/**/*.tpl"]) +
+      [
+        ".helmignore",
+    ],
+  )
+  values_template=k8s_config(
+    name = "_values_replacement",
+    srcs = ["values.yaml"],
+    params = params,
+    containers = containers,
+    sub_charts = sub_charts,
+    deps = containers + sub_charts,
+  )
+  chart_template=k8s_config(
+    name = "_chart_replacement",
+    srcs = ["Chart.yaml"],
+    params = params,
+    containers = containers,
+    sub_charts = sub_charts,
+    deps = containers + sub_charts,
+  )
+  updated_files = genrule(
+    name = "_replaced_files",
+    deps = [values_template, chart_template],
+    srcs = {
+      'values': [values_template],
+      'chart': [chart_template],
+    },
+    outs = {
+      'values': ['values.yaml'],
+      'chart': ['Chart.yaml'],
+    },
+    cmd = f"mv $(location {values_template}) $OUTS_VALUES && mv $(location {chart_template}) $OUTS_CHART",
+  )
+
+  pre_dep_chart_files=filegroup(
+    name = f'_pre_deps_files',
+    deps = [chart_tmp_files, updated_files],
+    srcs = [
+        chart_tmp_files,
+        ":_replaced_files|values", 
+        ":_replaced_files|chart"
+    ],
+  )
+
+
+  if not chart_name:
+    chart_name = f'$(basename $(out_dir {pre_dep_chart_files}))'
+  remote = f'{repo}'
+  chart_folder = f'./$(out_dir {pre_dep_chart_files})'
+  package_name = package_name()
+
+
+  if remote.startswith('file://'):
+    remote = f'{remote}/{chart_name}'
+
+  fqn = build_rule(
+      name = f'{name}_fqn',
+      pass_env = params.keys(),
+      cmd = f"""
+REPOSITORY={remote}
+if [[ $REPOSITORY = file* ]]; then
+    REPOSITORY="$REPOSITORY/{chart_name}"
+fi
+cat >> $OUT <<EOL
+- name: "{chart_name}"\\n  version: "{version}"\\n  repository: "$REPOSITORY"
+EOL
+""",
+      outs = [f'{name}_fqn'],
+      labels = labels + ["helm-fqn"],
+      stamp = True,
+      visibility = visibility,
+  )
+
+
+
+
+  sub_charts_updated_deps = [f'{sc}_updated_deps' for sc in sub_charts]
+
+
+
+  update_rule = genrule(
+    name = f'{name}_updated_deps',
+    deps = [pre_dep_chart_files] + sub_charts + sub_charts_updated_deps,
+    srcs = {
+      'chart_files': [pre_dep_chart_files],
+      'subchart_files': sub_charts + sub_charts_updated_deps,
+    },
+    outs = ['charts', 'Chart.lock'],
+    pass_env = ["APP_VERSION", "CHART_OCI_REGISTRY", "CHART_OCI_REGISTRY_USERNAME", "CHART_OCI_REGISTRY_PASSWORD"],
+    cmd = f"""
+set -e 
+
+export HELM_EXPERIMENTAL_OCI=1
+
+echo {oci_registry_password} | helm registry login {oci_registry} --username {oci_registry_username} --password-stdin
+helm dependency update {package_name}
+mkdir -p {package_name}/charts
+mkdir -p build
+cp -r {package_name}/charts/. build/
+cp {package_name}/Chart.lock ./
+rm -rf charts
+mkdir -p charts
+cp -r build/. charts/
+""",
+  )
+
+  chart_files=filegroup(
+    name = f'{name}',
+    deps = [pre_dep_chart_files, update_rule],
+    labels = ["helm-chart"],
+    srcs = [
+        pre_dep_chart_files,
+        update_rule
+    ],
+  )
+ 
+  package_rule = genrule(
+    name = "_helm_package",
+    deps = [chart_files],
+    srcs = {
+      'chart_files': [chart_files],
+      'subchart_files': sub_charts,
+    },
+    output_dirs = ["_out"],
+    pass_env = ["APP_VERSION"],
+    cmd = f"""
+helm package {package_name} -d _out
+""",
+  )
+
+  sub_charts_push = [f'{sc}_helm_push' for sc in sub_charts]
+  sub_chart_push_cmds='$(out_location %s)' % ';\n'.join(sub_charts_push)
+  sh_cmd(
+    name = f'{name}_helm_push',
+    labels = ["helm-push"],
+    deps = [pre_dep_chart_files] + sub_charts_push,
+    srcs = [pre_dep_chart_files],
+    cmd = f"""
+export HELM_EXPERIMENTAL_OCI=1
+{sub_chart_push_cmds}
+helm dependency update {chart_folder}
+helm package {chart_folder} -d {chart_folder}
+helm push {chart_folder}/{chart_name}-{version}.tgz {remote}
+""",
+  )
+  
+  sub_charts_update = [f'{sc}_helm_dependency_update' for sc in sub_charts]
+  sub_chart_update_cmds='$(out_location %s)' % ';\n'.join(sub_charts_update)
+  sh_cmd(
+    name = f'{name}_helm_dependency_update',
+    labels = ["helm-dependency-update"],
+    deps = [pre_dep_chart_files] + sub_charts_update,
+    srcs = [pre_dep_chart_files],
+    cmd = f"""
+export HELM_EXPERIMENTAL_OCI=1
+{sub_chart_update_cmds}
+helm dependency update {chart_folder}
+""",
+  )
+  sh_cmd(
+    name = "_helm_chart_debug",
+    labels = ["helm-chart-debug"],
+    deps = [package_rule, chart_files] + sub_charts + sub_charts_push,
+    srcs = {
+      'chart_files': [chart_files],
+      'subchart_files': sub_charts,
+    },
+    cmd = f"""
+echo $(out_locations {package_rule}) 
+
+
+""",
+  )
+
+  # 
+  
+  return chart_files
+
+def deployment(scenario:str, chart:str, host_suffix:str='', namespace:str, deps:list=[]):
+  if chart:
+    chart = canonicalise(chart)
+
+  chart_folder = f'./$(out_dir {chart})'
+  
+  if host_suffix:
+    release_name = f'{scenario}'
+  else:
+    release_name = f'{scenario}-{host_suffix}'
+
+  sh_cmd(
+    name = f'{scenario}_upgrade',
+    labels = ["helm-upgrade"],
+    deps = [chart],
+    srcs = {
+      'chart_files': [chart],
+      'scenario': [f'{scenario}.yaml']
+    },
+    cmd = f"""
+helm upgrade {release_name} {chart_folder} -f $SRCS_SCENARIO --set global.hosts.hostSuffix={host_suffix} -n {namespace}
+""",
+  )
+
+  sh_cmd(
+    name = f'{scenario}_install',
+    labels = ["helm-install"],
+    deps = [chart],
+    srcs = {
+      'chart_files': [chart],
+      'scenario': [f'{scenario}.yaml']
+    },
+    cmd = f"""
+helm install -f $SRCS_SCENARIO {release_name} {chart_folder} --set global.hosts.hostSuffix={host_suffix} -n {namespace}
+""",
+  )
+
+  sh_cmd(
+    name = f'{scenario}_uninstall',
+    labels = ["helm-uninstall"],
+    cmd = f"""
+helm uninstall {release_name} -n {namespace}
+""",
+  )
