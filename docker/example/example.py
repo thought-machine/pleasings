@@ -1,6 +1,7 @@
 """Example Python web server."""
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
+import sys
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -12,9 +13,10 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    address = ('', 8000)
+    port = sys.argv[1]
+    address = ('', int(port))
     server = HTTPServer(address, Handler)
-    print('Serving on localhost:8000')
+    print('Serving on localhost:'+port)
     server.serve_forever()
 
 

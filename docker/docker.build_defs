@@ -1,6 +1,7 @@
 def docker_image(name:str, srcs:list=[], image:str=None, version:str='',
                  dockerfile:str='Dockerfile', base_image:str='', repo:str='', labels:list=[],
-                 pass_env:list=[], run_args:str='', test_only:bool=False, visibility:list=None, build_args:str=''):
+                 pass_env:list=[], run_args:str='', test_only:bool=False, visibility:list=None, build_args:str='',
+                 container_args:str=''):
     """docker_image defines a build rule for a Docker image.
 
     You must use `plz run` to actually build the target.
@@ -23,6 +24,7 @@ def docker_image(name:str, srcs:list=[], image:str=None, version:str='',
       test_only: If True, this can only be depended on by test rules.
       visibility: Visibility of this rule.
       build_args: Any arguments to provide to 'docker build'
+      container_args: Any arguments to provide to the container's entrypoint during 'docker run'
     """
     image = image or name
     if base_image:
@@ -92,7 +94,7 @@ def docker_image(name:str, srcs:list=[], image:str=None, version:str='',
     # docker run
     sh_cmd(
         name = name + '_run',
-        cmd = f'./$(out_location {docker_build}) && docker run -it {run_args} `cat $SRCS`',
+        cmd = f'./$(out_location {docker_build}) && docker run -it {run_args} `cat $SRCS` {container_args}',
         srcs = [fqn],
         deps = [docker_build],
         visibility = visibility,
