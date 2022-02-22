@@ -226,7 +226,7 @@ eval "\\\$( $(out_location {TERRAFORM_PLZ_TOOL}) root_workspace \\
 {pre_workspace_cmd}
 
 # Run the provided commands, if any.
-eval "set -x; \\\$@"
+eval "set -x; \\\$*"
 
 # Run post commands
 {post_workspace_cmd}
