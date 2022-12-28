@@ -146,11 +146,11 @@ function root_build {
     # substitute build env vars to srcs
     # This is useful for re-using source file in multiple workspaces,
     # such as templating a Terraform remote state configuration.
-    find "${out}" -maxdepth 1 -name "*.tf" -exec sed -i "s#\$PKG#${pkg}#g" {} +
-    find "${out}" -maxdepth 1 -name "*.tf" -exec sed -i "s#\$PKG_DIR#${pkg_dir}#g" {} +
-    find "${out}" -maxdepth 1 -name "*.tf" -exec sed -i "s#\$NAME#${name}#g" {} +
-    find "${out}" -maxdepth 1 -name "*.tf" -exec sed -i "s#\$ARCH#${arch}#g" {} +
-    find "${out}" -maxdepth 1 -name "*.tf" -exec sed -i "s#\$OS#${os}#g" {} +
+    find "${out}" -maxdepth 1 -name "*.tf" -exec sed -i.bak "s#\$PKG#${pkg}#g" {} +
+    find "${out}" -maxdepth 1 -name "*.tf" -exec sed -i.bak "s#\$PKG_DIR#${pkg_dir}#g" {} +
+    find "${out}" -maxdepth 1 -name "*.tf" -exec sed -i.bak "s#\$NAME#${name}#g" {} +
+    find "${out}" -maxdepth 1 -name "*.tf" -exec sed -i.bak "s#\$ARCH#${arch}#g" {} +
+    find "${out}" -maxdepth 1 -name "*.tf" -exec sed -i.bak "s#\$OS#${os}#g" {} +
 
     # shift var files into outs
     # copies the given var files into the 
@@ -185,7 +185,7 @@ function _colocate_modules {
             mapfile -t searches <"${m}/${PLZ_TF_METADATA_DIR}/.module_aliases"
             for search in "${searches[@]}"; do
                 log::debug "replacing '${search}' with '${replace}'"
-                find . -name "*.tf" -exec sed -i  "s#\"[^\"]*${search}[^\"]*\"#\"${replace}\"#g" {} +
+                find . -name "*.tf" -exec sed -i.bak "s#\"[^\"]*${search}[^\"]*\"#\"${replace}\"#g" {} +
             done
             mkdir -p "${out}/modules/${m}"
             cp -r "$m" "${out}/modules/$(dirname ${m})/"
