@@ -40,3 +40,6 @@ sourcelevel = 7
 targetlevel = 7
 defaultmavenrepo = https://repo1.maven.org/maven2
 defaultmavenrepo = https://maven.google.com
+
+[PluginDefinition]
+name = pleasings
