@@ -1,5 +1,5 @@
 [please]
-version = >=16.7.0
+version = 16.27.2
 
 [build]
 path = /usr/local/bin:/usr/bin:/bin
@@ -40,3 +40,12 @@ sourcelevel = 7
 targetlevel = 7
 defaultmavenrepo = https://repo1.maven.org/maven2
 defaultmavenrepo = https://maven.google.com
+
+[plugindefinition]
+name = pleasings
+
+[parse]
+preloadsubincludes = ///shell//build_defs:shell
+
+[plugin "shell"]
+target = //plugins:shell
