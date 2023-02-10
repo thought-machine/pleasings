@@ -1,6 +1,8 @@
 """Build rules for working with Hashicorp Terraform (https://terraform.io)
 """
 
+subinclude("///shell//build_defs:shell")
+
 TERRAFORM_DEFAULT_TOOLCHAIN = CONFIG.get('TERRAFORM_DEFAULT_TOOLCHAIN') or "//third_party/binary:terraform"
 TERRAFORM_PLZ_TOOL = CONFIG.get('TERRAFORM_PLZ_TOOL') or "//third_party/terraform:plz"
 
