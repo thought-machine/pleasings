@@ -1,4 +1,12 @@
+# Pleasings has been deprecated in favour of the new plugins API
+These rules are now unmaintained. Since v17 Please has introduced the plugins API and many of these rules have been moved here:
+https://github.com/please-build/please-rules
+
+If you'd like to use something in this repo that has not been migrated to a plugin, Please raise an issue on the main [Please repo](https://github.com/thought-machine/please). 
+
 # Pleasings [![Build Status](https://circleci.com/gh/thought-machine/pleasings.svg?style=shield)](https://circleci.com/gh/thought-machine/pleasings)
+
+
 Addons &amp; new build rules for [Please](https://github.com/thought-machine/please)
 
 Most of these are either still experimental or sufficiently esoteric that we prefer not to make them
