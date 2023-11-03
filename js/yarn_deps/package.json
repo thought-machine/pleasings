@@ -12,7 +12,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "parse-yarn-lock": "0.28.4",
-    "semver": "^7.3.2"
+    "semver": "^7.5.2"
   },
   "devDependencies": {
     "webpack": "^4.44.1",
